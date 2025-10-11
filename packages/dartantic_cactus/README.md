@@ -158,11 +158,11 @@ final optimizedOptions = CactusChatModelOptions(
 
 | Platform | Support Level | Notes |
 |----------|--------------|-------|
-| Android  | ✅ Full      | Recommended platform |
-| iOS      | ✅ Full      | Excellent performance |
-| macOS    | ✅ Full      | Great for development |
-| Windows  | ⚠️ Limited   | Basic functionality |
-| Linux    | ⚠️ Limited   | Basic functionality |
+| Android  | ✅ Full      | Primary supported platform |
+| iOS      | ✅ Full      | Primary supported platform |
+| macOS    | ❌ Unknown   | Not confirmed by Cactus documentation |
+| Windows  | ❌ Unknown   | Not confirmed by Cactus documentation |
+| Linux    | ❌ Unknown   | Not confirmed by Cactus documentation |
 | Web      | ❌ Not supported | GGUF models not supported in browser |
 
 ## Performance Guidelines
