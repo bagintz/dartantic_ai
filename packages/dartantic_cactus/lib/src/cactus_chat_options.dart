@@ -35,6 +35,9 @@ class CactusChatModelOptions extends ChatModelOptions {
   /// Maximum number of tokens to generate.
   final int maxTokens;
 
+  /// List of stop sequences to halt generation.
+  final List<String> stopSequences;
+
   /// Enterprise token for cloud features (optional).
   final String? cactusToken;
 
@@ -51,6 +54,7 @@ class CactusChatModelOptions extends ChatModelOptions {
     this.supportVision = false,
     this.temperature = 0.7,
     this.maxTokens = 2048,
+    this.stopSequences = const [],
     this.cactusToken,
   });
 }
