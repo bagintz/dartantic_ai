@@ -10,10 +10,9 @@ import 'cactus_chat_options.dart';
 class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions> {
   /// Creates a new Cactus embeddings model instance.
   CactusEmbeddingsModel({
-    required String name,
+    required super.name,
     CactusEmbeddingsModelOptions? options,
   }) : super(
-          name: name,
           defaultOptions: options ?? 
             const CactusEmbeddingsModelOptions(modelUrl: 'default'),
         );

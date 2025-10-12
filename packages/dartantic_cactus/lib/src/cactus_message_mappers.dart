@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:cactus/cactus.dart' as cactus;
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:path/path.dart' as path;
 
 /// Utilities for converting between dartantic and Cactus message formats.
 class CactusMessageMappers {
@@ -24,15 +26,19 @@ class CactusMessageMappers {
   }
 
   /// Extracts image paths from dartantic messages for vision models.
-  static List<String> extractImagePaths(List<ChatMessage> messages) {
+  /// 
+  /// Converts DataPart images to temporary files and collects file paths.
+  static Future<List<String>> extractImagePaths(List<ChatMessage> messages) async {
     final imagePaths = <String>[];
     
     for (final message in messages) {
       for (final part in message.parts) {
         if (part is DataPart && part.mimeType.startsWith('image/')) {
-          // Handle base64 image data - would need to save to temp file
-          // TODO: Implement base64 to file conversion for Cactus VLM
-          // For now, skip DataPart images
+          // Convert DataPart bytes to temporary file
+          final tempPath = await _saveDataPartToTempFile(part);
+          if (tempPath != null) {
+            imagePaths.add(tempPath);
+          }
         } else if (part is LinkPart && part.url.isScheme('file')) {
           // Handle file:// URLs
           final mimeType = part.mimeType;
@@ -44,6 +50,48 @@ class CactusMessageMappers {
     }
     
     return imagePaths;
+  }
+
+  /// Saves a DataPart to a temporary file and returns the path.
+  static Future<String?> _saveDataPartToTempFile(DataPart dataPart) async {
+    try {
+      // Get temp directory
+      final tempDir = Directory.systemTemp;
+      
+      // Generate filename with proper extension
+      final extension = _getExtensionFromMimeType(dataPart.mimeType);
+      final fileName = 'cactus_image_${DateTime.now().millisecondsSinceEpoch}$extension';
+      final tempFile = File(path.join(tempDir.path, fileName));
+      
+      // Write bytes to file
+      await tempFile.writeAsBytes(dataPart.bytes);
+      
+      return tempFile.path;
+    } catch (e) {
+      // If saving fails, return null
+      return null;
+    }
+  }
+
+  /// Gets file extension from MIME type.
+  static String _getExtensionFromMimeType(String mimeType) {
+    switch (mimeType.toLowerCase()) {
+      case 'image/jpeg':
+      case 'image/jpg':
+        return '.jpg';
+      case 'image/png':
+        return '.png';
+      case 'image/gif':
+        return '.gif';
+      case 'image/webp':
+        return '.webp';
+      case 'image/bmp':
+        return '.bmp';
+      case 'image/tiff':
+        return '.tiff';
+      default:
+        return '.jpg'; // Default fallback
+    }
   }
 
   /// Creates a dartantic ChatMessage from Cactus response text.

@@ -7,7 +7,6 @@ import 'package:logging/logging.dart';
 
 import 'cactus_chat_options.dart';
 import 'cactus_message_mappers.dart';
-import 'cactus_streaming_accumulator.dart';
 
 /// Cactus chat model implementation using Cactus Dart API.
 ///
@@ -16,16 +15,13 @@ import 'cactus_streaming_accumulator.dart';
 class CactusChatModel extends ChatModel<CactusChatModelOptions> {
   /// Creates a new Cactus chat model instance.
   CactusChatModel({
-    required String name,
+    required super.name,
     CactusChatModelOptions? options,
-    double? temperature,
-    List<Tool>? tools,
+    super.temperature,
+    super.tools,
   }) : super(
-          name: name,
           defaultOptions: options ?? 
             const CactusChatModelOptions(modelUrl: 'default'),
-          temperature: temperature,
-          tools: tools,
         );
 
   static final Logger _logger = Logger('dartantic.cactus.chat_model');
@@ -35,13 +31,16 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
   bool _isInitialized = false;
 
   /// Initializes the underlying Cactus model.
-  Future<void> _ensureInitialized(CactusChatModelOptions options) async {
+  /// 
+  /// Determines whether to use text-only (CactusLM) or vision (CactusVLM) 
+  /// model based on conversation content and options.
+  Future<void> _ensureInitialized(CactusChatModelOptions options, {bool needsVision = false}) async {
     if (_isInitialized) return;
 
     try {
-      _logger.info('Initializing Cactus model: ${options.modelUrl}');
+      _logger.info('Initializing Cactus model: ${options.modelUrl} (vision: ${needsVision || options.supportVision})');
       
-      if (options.supportVision && options.mmprojUrl != null) {
+      if ((needsVision || options.supportVision) && options.mmprojUrl != null) {
         // Initialize Vision Language Model
         _vlm = cactus.CactusVLM();
         
@@ -105,6 +104,18 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
     }
   }
 
+  /// Checks if messages contain visual content (images).
+  bool _hasVisualContent(List<ChatMessage> messages) {
+    for (final message in messages) {
+      for (final part in message.parts) {
+        if (part is DataPart && part.mimeType.startsWith('image/')) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   @override
   Stream<ChatResult<ChatMessage>> sendStream(
     List<ChatMessage> messages, {
@@ -112,7 +123,11 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
     JsonSchema? outputSchema,
   }) async* {
     final opts = options ?? defaultOptions;
-    await _ensureInitialized(opts);
+    
+    // Check if we need vision model based on message content
+    final needsVision = _hasVisualContent(messages) || opts.supportVision;
+    
+    await _ensureInitialized(opts, needsVision: needsVision);
 
     if (!_isInitialized || (_lm == null && _vlm == null)) {
       throw StateError('Model not initialized');
@@ -122,18 +137,25 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
       // Convert dartantic messages to Cactus messages
       final cactusMessages = CactusMessageMappers.toCactusMessages(messages);
       
-      final accumulator = CactusStreamingAccumulator();
+      // Extract image paths for vision models
+      final imagePaths = needsVision 
+        ? await CactusMessageMappers.extractImagePaths(messages)
+        : <String>[];
+      
+      // Accumulate tokens for streaming
+      var accumulatedText = '';
       
       // Generate completion with streaming
       if (_vlm != null) {
-        // Use Vision Language Model
+        // Use Vision Language Model with proper imagePaths parameter
         await _vlm!.completion(
           cactusMessages,
+          imagePaths: imagePaths, // Pass extracted image paths
           maxTokens: opts.maxTokens,
           temperature: temperature ?? opts.temperature,
           stopSequences: opts.stopSequences,
           onToken: (String token) {
-            accumulator.addToken(token);
+            accumulatedText += token;
             // Return true to continue generation
             return true;
           },
@@ -146,7 +168,7 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
           temperature: temperature ?? opts.temperature,
           stopSequences: opts.stopSequences,
           onToken: (String token) {
-            accumulator.addToken(token);
+            accumulatedText += token;
             // Return true to continue generation
             return true;
           },
@@ -154,7 +176,10 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
       }
       
       // Yield the final result
-      yield accumulator.toChatResult();
+      yield ChatResult<ChatMessage>(
+        output: ChatMessage.model(accumulatedText),
+        metadata: {},
+      );
       
     } catch (e, stackTrace) {
       _logger.severe('Error during chat completion', e, stackTrace);

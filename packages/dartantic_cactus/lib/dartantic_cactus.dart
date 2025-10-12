@@ -9,7 +9,4 @@ export 'src/cactus_chat_model.dart';
 export 'src/cactus_chat_options.dart';
 export 'src/cactus_embeddings_model.dart';
 export 'src/cactus_message_mappers.dart';
-export 'src/cactus_multimodal_utils.dart';
 export 'src/cactus_provider.dart';
-export 'src/cactus_streaming_accumulator.dart';
-export 'src/cactus_thinking_utils.dart';

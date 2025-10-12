@@ -1,4 +1,6 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:logging/logging.dart';
+
 import 'cactus_chat_model.dart';
 import 'cactus_chat_options.dart';
 import 'cactus_embeddings_model.dart';
@@ -11,8 +13,8 @@ class CactusProvider extends Provider<CactusChatModelOptions, CactusEmbeddingsMo
   /// Creates a new Cactus provider instance.
   CactusProvider()
       : super(
-          apiKey: null,
-          apiKeyName: null,
+          apiKey: null, // Local provider, no API key required
+          apiKeyName: null, // Local provider
           name: 'cactus',
           displayName: 'Cactus AI',
           defaultModelNames: const {
@@ -26,9 +28,12 @@ class CactusProvider extends Provider<CactusChatModelOptions, CactusEmbeddingsMo
           },
         );
 
+  // IMPORTANT: Logger must be private and static final per dartantic patterns
+  static final Logger _logger = Logger('dartantic.chat.providers.cactus');
+
   @override
   Stream<ModelInfo> listModels() {
-    // TODO: Implement model listing
+    // TODO: Implement model listing from Cactus
     // For now, return empty stream
     return const Stream.empty();
   }
@@ -40,8 +45,15 @@ class CactusProvider extends Provider<CactusChatModelOptions, CactusEmbeddingsMo
     double? temperature,
     CactusChatModelOptions? options,
   }) {
+    final modelName = name ?? defaultModelNames[ModelKind.chat]!;
+    
+    _logger.info(
+      'Creating Cactus model: $modelName with ${tools?.length ?? 0} tools, '
+      'temp: $temperature',
+    );
+
     return CactusChatModel(
-      name: name ?? defaultModelNames[ModelKind.chat]!,
+      name: modelName,
       options: options,
       temperature: temperature,
       tools: tools,
