@@ -11,7 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  dartantic_interface: ^1.1.0
+  dartantic_interface:
+    path: ../../dartantic_interface
   dartantic_cactus:
     path: ../
 

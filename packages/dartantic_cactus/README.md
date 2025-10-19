@@ -1,18 +1,26 @@
 # Dartantic Cactus AI Provider
 
-A [dartantic_ai](https://pub.dev/packages/dartantic_interface) provider that enables on-device AI model execution using the [Cactus](https://pub.dev/packages/cactus) framework. Run language models, vision models, and generate embeddings locally on Flutter devices without network dependencies.
+A [dartantic_ai](https://pub.dev/packages/dartantic_interface) provider that enables on-device AI model execution using the [Cactus](https://github.com/cactus-compute/cactus-flutter) framework. Run language models and generate embeddings locally on Flutter devices without network dependencies.
+
+> **⚠️ Migration Notice**: This provider is being updated to use Cactus main branch (0.3.1+). See [MAIN_BRANCH_MIGRATION.md](MAIN_BRANCH_MIGRATION.md) for details.
 
 ## Features
 
 - 🏠 **On-Device Execution**: Run AI models locally without internet connectivity
-- 🚀 **Multiple Model Types**: Support for language models (LM), vision language models (VLM), and text-to-speech (TTS)
+- 🚀 **Language Models**: Support for text generation and chat
 - 📱 **Flutter Integration**: Seamless integration with Flutter applications
-- 🎯 **GGUF Format**: Support for HuggingFace GGUF models
-- ⚡ **GPU Acceleration**: Configurable GPU layer offloading for better performance
+- 🎯 **GGUF Format**: Support for HuggingFace GGUF models via model catalog
 - 🔄 **Streaming**: Real-time token streaming for chat applications
-- 🖼️ **Multimodal**: Vision models for image analysis and description
 - 🎨 **Embeddings**: Generate text embeddings for semantic search
-- ☁️ **Cloud Fallback**: Enterprise features for hybrid local/cloud execution
+- ☁️ **Hybrid Mode**: Optional cloud fallback for enhanced capabilities
+
+## Known Limitations
+
+- ❌ **No Vision Support**: Vision/multimodal capabilities not available in current Cactus main branch
+- ❌ **No TTS Support**: Text-to-speech removed from main branch
+- ⚠️ **GitHub Installation**: Must install from GitHub (not available on pub.dev yet)
+
+For vision capabilities, consider using `dartantic_firebase_ai` or other providers.
 
 ## Quick Start
 
@@ -23,8 +31,13 @@ Add to your `pubspec.yaml`:
 ```yaml
 dependencies:
   dartantic_interface: ^1.1.0
-  dartantic_cactus: ^0.1.0
+  dartantic_cactus:
+    git:
+      url: https://github.com/csells/dartantic_ai.git
+      path: packages/dartantic_cactus
 ```
+
+> **Note**: Cactus provider must be installed from GitHub until pub.dev release is available.
 
 ### 2. Register the Provider
 
@@ -60,42 +73,22 @@ print(response.text);
 
 ```dart
 final agent = Agent(
-  model: 'cactus:phi-3-mini-4k-instruct',
+  model: 'cactus:qwen3-0.6',  // Use model slug from Cactus catalog
   modelOptions: CactusChatModelOptions(
-    modelUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf',
+    modelSlug: 'qwen3-0.6',  // Model catalog identifier
     contextSize: 4096,
-    gpuLayers: 20,  // Use GPU acceleration
-    temperature: 0.7,
   ),
 );
 ```
 
-### Vision Language Model
-
-```dart
-final visionAgent = Agent(
-  model: 'cactus:llava-phi-3-mini',
-  modelOptions: CactusChatModelOptions(
-    modelUrl: 'https://huggingface.co/xtuner/llava-phi-3-mini-gguf/resolve/main/llava-phi-3-mini-int4.gguf',
-    mmprojUrl: 'https://huggingface.co/xtuner/llava-phi-3-mini-gguf/resolve/main/llava-phi-3-mini-mmproj-f16.gguf',
-    contextSize: 4096,
-    supportVision: true,
-  ),
-);
-
-// Send image with text
-final response = await visionAgent.text(
-  'What do you see in this image?',
-  images: ['/path/to/image.jpg'],
-);
-```
+> **⚠️ Breaking Change**: Model configuration now uses `modelSlug` (catalog identifier) instead of `modelUrl`. See [MAIN_BRANCH_MIGRATION.md](MAIN_BRANCH_MIGRATION.md) for migration guide.
 
 ### Embeddings Model
 
 ```dart
 final embeddingsModel = CactusEmbeddingsModel(
   options: CactusEmbeddingsModelOptions(
-    modelUrl: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/model.gguf',
+    modelSlug: 'all-MiniLM-L6-v2',  // Use catalog slug
     generateEmbeddings: true,
   ),
 );
@@ -115,44 +108,27 @@ await for (final chunk in agent.stream('Tell me a story')) {
 }
 ```
 
-### Local Model Files
-
-```dart
-final agent = Agent(
-  model: 'cactus:local-model',
-  modelOptions: CactusChatModelOptions(
-    modelUrl: '/path/to/local/model.gguf',  // Local file path
-    contextSize: 2048,
-  ),
-);
-```
-
 ### Performance Optimization
 
 ```dart
 final optimizedOptions = CactusChatModelOptions(
-  modelUrl: 'https://huggingface.co/model.gguf',
+  modelSlug: 'qwen3-0.6',   // Lightweight model
   contextSize: 2048,        // Smaller context = faster inference
-  gpuLayers: 20,            // Use GPU acceleration
-  threads: 4,               // Optimize for device CPU cores
-  temperature: 0.3,         // Lower temperature = faster generation
 );
 ```
 
 ## Model Recommendations
 
 ### Language Models
-- **Phi-3 Mini (3.8B)**: Excellent for mobile devices, good balance of size and capability
-- **Llama 3.1 8B**: High quality responses, requires more powerful hardware
-- **Gemma 2B**: Very lightweight, good for basic tasks
-
-### Vision Models  
-- **LLaVA-Phi-3-Mini**: Good mobile vision model with reasonable memory usage
-- **MobileVLM**: Optimized specifically for mobile devices
+- **qwen3-0.6**: Default model, lightweight and fast
+- **phi-3-mini**: Good balance of size and capability for mobile devices
+- **llama-3.1-8b**: High quality responses, requires more powerful hardware
 
 ### Embedding Models
 - **all-MiniLM-L6-v2**: Fast and accurate sentence embeddings
 - **all-mpnet-base-v2**: Higher quality embeddings, larger model
+
+> **Note**: Available models depend on Cactus model catalog. Vision models not currently supported.
 
 ## Platform Support
 
@@ -186,9 +162,9 @@ final optimizedOptions = CactusChatModelOptions(
 Check out the [example](example/) directory for complete sample applications:
 
 - **Basic Chat**: Simple chat interface with streaming
-- **Vision Chat**: Multimodal chat with image analysis  
 - **Embeddings Demo**: Semantic search implementation
-- **Performance Monitor**: Real-time performance metrics
+
+> **Note**: Examples are being updated for main branch API. Some examples may not work until migration is complete.
 
 ## Development
 
@@ -219,9 +195,17 @@ flutter run
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Migration Guide
+
+If you're upgrading from an earlier version, see [MAIN_BRANCH_MIGRATION.md](MAIN_BRANCH_MIGRATION.md) for:
+- Breaking changes
+- API updates
+- Feature changes
+- Migration checklist
+
 ## Links
 
-- [Cactus Package](https://pub.dev/packages/cactus)
+- [Cactus GitHub](https://github.com/cactus-compute/cactus-flutter)
 - [Dartantic AI Framework](https://pub.dev/packages/dartantic_interface)
 - [HuggingFace GGUF Models](https://huggingface.co/models?library=gguf)
 - [Documentation](https://github.com/csells/dartantic_ai/tree/main/docs)

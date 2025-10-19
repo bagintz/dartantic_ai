@@ -1,8 +1,8 @@
 name: dartantic_cactus
 description: >
   Cactus AI provider for dartantic_ai. Provides on-device AI model execution
-  using the Cactus framework with support for language models, vision models,
-  and embeddings through GGUF format models.
+  using the Cactus framework with support for language models and embeddings
+  through GGUF format models.
 version: 0.1.0
 repository: https://github.com/csells/dartantic_ai
 issue_tracker: https://github.com/csells/dartantic_ai/issues
@@ -11,8 +11,12 @@ environment:
   sdk: ^3.8.0
 
 dependencies:
-  dartantic_interface: ^1.1.0
-  cactus: ^0.2.7
+  dartantic_interface:
+    path: ../dartantic_interface
+  cactus:
+    git:
+      url: https://github.com/cactus-compute/cactus-flutter.git
+      ref: main
   flutter:
     sdk: flutter
   http: ^1.4.0
