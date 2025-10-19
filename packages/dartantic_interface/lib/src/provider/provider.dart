@@ -4,6 +4,7 @@ import '../embeddings/embeddings_model.dart';
 import '../embeddings/embeddings_model_options.dart';
 import '../model/model.dart';
 import '../tool.dart';
+import '../tts_model.dart';
 import 'provider_caps.dart';
 
 export 'provider_caps.dart';
@@ -88,4 +89,16 @@ abstract class Provider<
     String? name,
     TEmbeddingsOptions? options,
   });
+
+  /// Creates a TTS model instance for this provider (if supported).
+  /// 
+  /// Returns null if the provider doesn't support text-to-speech.
+  /// Check [caps] for [ProviderCaps.textToSpeech] before calling.
+  TTSModel? createTTSModel({
+    String? name,
+    Map<String, dynamic>? options,
+  }) {
+    // Default implementation returns null (no TTS support)
+    return null;
+  }
 }

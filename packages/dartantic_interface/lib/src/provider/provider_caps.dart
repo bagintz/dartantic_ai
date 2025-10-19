@@ -25,4 +25,7 @@ enum ProviderCaps {
   /// When supported, thinking text is exposed via ChatResult.metadata under
   /// the key 'thinking'. It is never persisted into message history.
   thinking,
+
+  /// The provider supports text-to-speech generation.
+  textToSpeech,
 }

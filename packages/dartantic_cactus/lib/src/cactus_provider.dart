@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'cactus_chat_model.dart';
 import 'cactus_chat_options.dart';
 import 'cactus_embeddings_model.dart';
+import 'cactus_tts_model.dart';
 
 /// Cactus provider for dartantic_ai.
 ///
@@ -21,11 +22,14 @@ class CactusProvider extends Provider<CactusChatModelOptions, CactusEmbeddingsMo
             ModelKind.chat: 'phi-3-mini-4k-instruct',
           },
           caps: const {
-            ProviderCaps.chat,
-            ProviderCaps.embeddings,
-            ProviderCaps.chatVision,
-            ProviderCaps.thinking,
-          },
+          ProviderCaps.chat,
+          ProviderCaps.embeddings,
+          ProviderCaps.chatVision,
+          ProviderCaps.thinking,
+          ProviderCaps.multiToolCalls,  // NEW: CactusAgent tool calling
+          ProviderCaps.typedOutput,     // NEW: Prompt engineering + JSON validation
+          ProviderCaps.textToSpeech,   // NEW: CactusTTS support
+        },
         );
 
   // IMPORTANT: Logger must be private and static final per dartantic patterns
@@ -69,5 +73,33 @@ class CactusProvider extends Provider<CactusChatModelOptions, CactusEmbeddingsMo
       name: name ?? 'default',
       options: options,
     );
+  }
+
+  @override
+  TTSModel? createTTSModel({
+    String? name,
+    Map<String, dynamic>? options,
+  }) {
+    final modelUrl = options?['modelUrl'] as String?;
+    if (modelUrl == null) {
+      _logger.warning('modelUrl is required for CactusTTS models');
+      return null;
+    }
+
+    try {
+      return CactusTTSModel(
+        name: name ?? 'cactus-tts',
+        options: CactusTTSModelOptions(
+          modelUrl: modelUrl,
+          modelFilename: options?['modelFilename'] as String?,
+          contextSize: options?['contextSize'] as int? ?? 2048,
+          gpuLayers: options?['gpuLayers'] as int? ?? 0,
+          threads: options?['threads'] as int? ?? 4,
+        ),
+      );
+    } catch (e) {
+      _logger.severe('Failed to create CactusTTS model: $e');
+      return null;
+    }
   }
 }

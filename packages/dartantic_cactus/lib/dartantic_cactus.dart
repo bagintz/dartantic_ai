@@ -10,3 +10,4 @@ export 'src/cactus_chat_options.dart';
 export 'src/cactus_embeddings_model.dart';
 export 'src/cactus_message_mappers.dart';
 export 'src/cactus_provider.dart';
+export 'src/cactus_tts_model.dart';

@@ -31,26 +31,48 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
       
       _lm = cactus.CactusLM();
       
-      // Download model if URL is provided
-      await _lm!.download(
-        modelUrl: options.modelUrl,
-        modelFilename: options.modelFilename,
-        onProgress: (double? progress, String status, bool isError) {
-          _logger.info('Download: $status ${progress != null ? '${(progress * 100).toInt()}%' : ''}');
-        },
-      );
+      try {
+        // Download model if URL is provided
+        await _lm!.download(
+          modelUrl: options.modelUrl,
+          modelFilename: options.modelFilename,
+          onProgress: (double? progress, String status, bool isError) {
+            if (isError) {
+              _logger.severe('Download error: $status');
+            } else {
+              _logger.info('Download: $status ${progress != null ? '${(progress * 100).toInt()}%' : ''}');
+            }
+          },
+        );
+      } catch (e) {
+        throw Exception(
+          'Failed to download Cactus embeddings model from ${options.modelUrl}: $e. '
+          'Check your network connection and verify the URL is valid.',
+        );
+      }
       
-      // Initialize with embeddings enabled
-      final success = await _lm!.init(
-        contextSize: options.contextSize,
-        gpuLayers: options.gpuLayers,
-        threads: options.threads,
-        generateEmbeddings: true, // Enable embeddings
-        modelFilename: options.modelFilename,
-      );
-      
-      if (!success) {
-        throw Exception('Failed to initialize Cactus embeddings model');
+      try {
+        // Initialize with embeddings enabled
+        final success = await _lm!.init(
+          contextSize: options.contextSize,
+          gpuLayers: options.gpuLayers,
+          threads: options.threads,
+          generateEmbeddings: true, // Enable embeddings
+          modelFilename: options.modelFilename,
+        );
+        
+        if (!success) {
+          throw Exception(
+            'Cactus embeddings model initialization returned false. This may indicate '
+            'insufficient device resources, incompatible model format, or the model '
+            'does not support embeddings.',
+          );
+        }
+      } catch (e) {
+        throw Exception(
+          'Failed to initialize Cactus embeddings model: $e. Check device resources, '
+          'reduce contextSize/gpuLayers if needed, or verify the model supports embeddings.',
+        );
       }
       
       _isInitialized = true;
@@ -67,32 +89,91 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
     String query, {
     CactusEmbeddingsModelOptions? options,
   }) async {
+    // Validate inputs
+    if (query.isEmpty) {
+      throw ArgumentError('Query text cannot be empty');
+    }
+    
+    if (query.length > 8000) { // Reasonable text length limit
+      throw ArgumentError(
+        'Query text is too long (${query.length} characters). '
+        'Consider splitting into smaller chunks.',
+      );
+    }
+    
     final opts = options ?? defaultOptions;
     await _ensureInitialized(opts);
 
     if (!_isInitialized || _lm == null) {
-      throw StateError('Model not initialized');
+      throw StateError(
+        'Cactus embeddings model not initialized. Ensure the model download '
+        'and initialization completed successfully.',
+      );
     }
 
     try {
+      final queryLength = query.length;
+      
+      _logger.fine(
+        'Embedding query with Cactus model "$name" (length: $queryLength)'
+      );
+      
       // Get embeddings from Cactus
       final embeddings = await _lm!.embedding(query);
       
-      // Count tokens (rough estimate)
-      final tokenCount = query.split(' ').length;
+      // Estimate tokens (rough approximation: ~4 chars per token)
+      final estimatedTokens = (queryLength / 4).round();
       
-      return EmbeddingsResult(
+      _logger.fine(
+        'Cactus embedding query completed '
+        '(dimensions: ${embeddings.length}, estimated tokens: $estimatedTokens)'
+      );
+      
+      final result = EmbeddingsResult(
         output: embeddings,
         finishReason: FinishReason.stop,
-        metadata: {'model': name, 'input_tokens': tokenCount},
+        metadata: {
+          'model': name,
+          'dimensions': embeddings.length,
+          'query_length': queryLength,
+        },
         usage: LanguageModelUsage(
-          promptTokens: tokenCount,
-          totalTokens: tokenCount,
+          promptTokens: estimatedTokens,
+          promptBillableCharacters: queryLength,
+          totalTokens: estimatedTokens,
         ),
       );
       
+      _logger.info(
+        'Cactus embedding query result: '
+        '${result.output.length} dimensions, '
+        '${result.usage?.totalTokens ?? 0} estimated tokens'
+      );
+      
+      return result;
+      
+    } on OutOfMemoryError catch (e, stackTrace) {
+      _logger.severe('Out of memory during embedding generation', e, stackTrace);
+      throw Exception(
+        'Out of memory while processing query (${query.length} characters). '
+        'Try splitting the query into smaller chunks.',
+      );
     } catch (e, stackTrace) {
       _logger.severe('Error during embedding generation', e, stackTrace);
+      
+      // Provide helpful error context
+      if (e.toString().contains('model') || e.toString().contains('init')) {
+        throw Exception(
+          'Cactus embeddings model error: $e\n'
+          'Try reinitializing the model or checking model compatibility.',
+        );
+      } else if (e.toString().contains('network') || e.toString().contains('download')) {
+        throw Exception(
+          'Network error during embedding generation: $e\n'
+          'Check your internet connection and try again.',
+        );
+      }
+      
       rethrow;
     }
   }
@@ -102,26 +183,108 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
     List<String> texts, {
     CactusEmbeddingsModelOptions? options,
   }) async {
-    // For now, process documents one by one
-    // TODO: Optimize with batch processing if Cactus supports it
-    final embeddings = <List<double>>[];
-    int totalTokens = 0;
-    
-    for (final text in texts) {
-      final result = await embedQuery(text, options: options);
-      embeddings.add(result.embeddings);
-      totalTokens += result.usage?.totalTokens ?? 0;
+    // Validate inputs
+    if (texts.isEmpty) {
+      throw ArgumentError('Document list cannot be empty');
     }
     
-    return BatchEmbeddingsResult(
-      output: embeddings,
-      finishReason: FinishReason.stop,
-      metadata: {'model': name, 'batch_size': texts.length},
-      usage: LanguageModelUsage(
-        promptTokens: totalTokens, 
-        totalTokens: totalTokens
-      ),
-    );
+    if (texts.length > 100) { // Reasonable batch size limit
+      throw ArgumentError(
+        'Too many documents (${texts.length}). '
+        'Consider processing in smaller batches of 100 or fewer.',
+      );
+    }
+    
+    // Check for empty documents
+    for (int i = 0; i < texts.length; i++) {
+      if (texts[i].isEmpty) {
+        throw ArgumentError('Document at index $i is empty');
+      }
+    }
+    
+    final opts = options ?? defaultOptions;
+    await _ensureInitialized(opts);
+
+    if (!_isInitialized || _lm == null) {
+      throw StateError(
+        'Cactus embeddings model not initialized. Ensure the model download '
+        'and initialization completed successfully.',
+      );
+    }
+
+    try {
+      _logger.info('Generating embeddings for ${texts.length} documents');
+      
+      // Process documents one by one (Cactus doesn't have batch API)
+      final embeddings = <List<double>>[];
+      int totalPromptTokens = 0;
+      
+      for (int i = 0; i < texts.length; i++) {
+        final text = texts[i];
+        _logger.fine('Processing document ${i + 1}/${texts.length}');
+        
+        try {
+          // Get embeddings from Cactus
+          final embedding = await _lm!.embedding(text);
+          embeddings.add(embedding);
+          
+          // Estimate tokens (rough approximation)
+          totalPromptTokens += (text.length / 4).ceil();
+        } catch (e) {
+          // Provide specific context for which document failed
+          final preview = text.length > 50 ? text.substring(0, 50) : text;
+          throw Exception(
+            'Failed to generate embedding for document ${i + 1}/${texts.length}: $e\n'
+            'Document preview: "$preview${text.length > 50 ? '...' : ''}"\n'
+            'Consider checking document content or model compatibility.',
+          );
+        }
+      }
+      
+      _logger.info(
+        'Batch embeddings completed: ${embeddings.length} documents, '
+        '${embeddings.first.length} dimensions, $totalPromptTokens estimated tokens'
+      );
+      
+      return BatchEmbeddingsResult(
+        output: embeddings,
+        finishReason: FinishReason.stop,
+        metadata: {
+          'model': name,
+          'batch_size': texts.length,
+          'dimensions': embeddings.isNotEmpty ? embeddings.first.length : 0,
+        },
+        usage: LanguageModelUsage(
+          promptTokens: totalPromptTokens, 
+          totalTokens: totalPromptTokens,
+        ),
+      );
+      
+    } on OutOfMemoryError catch (e, stackTrace) {
+      _logger.severe('Out of memory during batch embedding generation', e, stackTrace);
+      throw Exception(
+        'Out of memory while processing ${texts.length} documents. '
+        'Try reducing batch size (current: ${texts.length}, suggested: ${texts.length ~/ 2}) '
+        'or document lengths.',
+      );
+    } catch (e, stackTrace) {
+      _logger.severe('Error during batch embedding generation', e, stackTrace);
+      
+      // Check for common Cactus-specific errors
+      if (e.toString().contains('model') || e.toString().contains('init')) {
+        throw Exception(
+          'Cactus embeddings model error: $e\n'
+          'Try reinitializing the model or checking model compatibility.',
+        );
+      } else if (e.toString().contains('network') || e.toString().contains('download')) {
+        throw Exception(
+          'Network error during embedding generation: $e\n'
+          'Check your internet connection and try again.',
+        );
+      }
+      
+      rethrow;
+    }
   }
 
   @override
