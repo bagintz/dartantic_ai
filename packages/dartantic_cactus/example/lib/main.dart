@@ -48,9 +48,8 @@ class _ChatScreenState extends State<ChatScreen> {
       _chatModel = _provider.createChatModel(
         name: 'phi-3-mini-4k-instruct',
         options: const CactusChatModelOptions(
-          modelUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf',
+          modelUrl: 'phi-3-mini-4k-instruct', // Model slug from Cactus catalog
           contextSize: 4096,
-          gpuLayers: 0, // CPU only for compatibility
           temperature: 0.7,
         ),
       );

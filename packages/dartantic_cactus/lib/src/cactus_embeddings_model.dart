@@ -22,7 +22,7 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
   cactus.CactusLM? _lm;
   bool _isInitialized = false;
 
-  /// Initializes the underlying Cactus model for embeddings.
+  /// Initializes the underlying Cactus model for embeddings using new API.
   Future<void> _ensureInitialized(CactusEmbeddingsModelOptions options) async {
     if (_isInitialized) return;
 
@@ -32,11 +32,10 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
       _lm = cactus.CactusLM();
       
       try {
-        // Download model if URL is provided
-        await _lm!.download(
-          modelUrl: options.modelUrl,
-          modelFilename: options.modelFilename,
-          onProgress: (double? progress, String status, bool isError) {
+        // Download model using new API (model slug instead of URL)
+        await _lm!.downloadModel(
+          model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
+          downloadProcessCallback: (double? progress, String status, bool isError) {
             if (isError) {
               _logger.severe('Download error: $status');
             } else {
@@ -52,26 +51,17 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
       }
       
       try {
-        // Initialize with embeddings enabled
-        final success = await _lm!.init(
-          contextSize: options.contextSize,
-          gpuLayers: options.gpuLayers,
-          threads: options.threads,
-          generateEmbeddings: true, // Enable embeddings
-          modelFilename: options.modelFilename,
+        // Initialize using new API
+        await _lm!.initializeModel(
+          params: cactus.CactusInitParams(
+            model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
+            contextSize: options.contextSize,
+          ),
         );
-        
-        if (!success) {
-          throw Exception(
-            'Cactus embeddings model initialization returned false. This may indicate '
-            'insufficient device resources, incompatible model format, or the model '
-            'does not support embeddings.',
-          );
-        }
       } catch (e) {
         throw Exception(
           'Failed to initialize Cactus embeddings model: $e. Check device resources, '
-          'reduce contextSize/gpuLayers if needed, or verify the model supports embeddings.',
+          'reduce contextSize if needed, or verify the model supports embeddings.',
         );
       }
       
@@ -118,8 +108,17 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
         'Embedding query with Cactus model "$name" (length: $queryLength)'
       );
       
-      // Get embeddings from Cactus
-      final embeddings = await _lm!.embedding(query);
+      // Get embeddings from Cactus using new API
+      final embeddingResult = await _lm!.generateEmbedding(
+        text: query,
+        modelName: opts.modelUrl, // TODO: This should be modelSlug after Phase 3
+      );
+      
+      if (!embeddingResult.success) {
+        throw Exception('Failed to generate embeddings: ${embeddingResult.errorMessage}');
+      }
+      
+      final embeddings = embeddingResult.embeddings;
       
       // Estimate tokens (rough approximation: ~4 chars per token)
       final estimatedTokens = (queryLength / 4).round();
@@ -224,9 +223,17 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
         _logger.fine('Processing document ${i + 1}/${texts.length}');
         
         try {
-          // Get embeddings from Cactus
-          final embedding = await _lm!.embedding(text);
-          embeddings.add(embedding);
+          // Get embeddings from Cactus using new API
+          final embeddingResult = await _lm!.generateEmbedding(
+            text: text,
+            modelName: opts.modelUrl, // TODO: This should be modelSlug after Phase 3
+          );
+          
+          if (!embeddingResult.success) {
+            throw Exception('Failed to generate embeddings: ${embeddingResult.errorMessage}');
+          }
+          
+          embeddings.add(embeddingResult.embeddings);
           
           // Estimate tokens (rough approximation)
           totalPromptTokens += (text.length / 4).ceil();
@@ -290,7 +297,7 @@ class CactusEmbeddingsModel extends EmbeddingsModel<CactusEmbeddingsModelOptions
   @override
   void dispose() {
     try {
-      _lm?.dispose();
+      _lm?.unload();  // New API uses unload() instead of dispose()
       _lm = null;
       _isInitialized = false;
       _logger.info('Cactus embeddings model disposed');

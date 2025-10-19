@@ -75,25 +75,26 @@ print(response.text);
 final agent = Agent(
   model: 'cactus:qwen3-0.6',  // Use model slug from Cactus catalog
   modelOptions: CactusChatModelOptions(
-    modelSlug: 'qwen3-0.6',  // Model catalog identifier
+    modelUrl: 'qwen3-0.6',  // Model catalog identifier (will be renamed to modelSlug in next version)
     contextSize: 4096,
   ),
 );
 ```
 
-> **⚠️ Breaking Change**: Model configuration now uses `modelSlug` (catalog identifier) instead of `modelUrl`. See [MAIN_BRANCH_MIGRATION.md](MAIN_BRANCH_MIGRATION.md) for migration guide.
+> **⚠️ Breaking Change**: Model configuration now uses model slugs (catalog identifiers like 'qwen3-0.6') instead of direct HuggingFace URLs. The `modelUrl` parameter name is kept for backward compatibility but now accepts model slugs. See [MAIN_BRANCH_MIGRATION.md](MAIN_BRANCH_MIGRATION.md) for migration guide.
 
 ### Embeddings Model
 
 ```dart
 final embeddingsModel = CactusEmbeddingsModel(
+  name: 'all-MiniLM-L6-v2',
   options: CactusEmbeddingsModelOptions(
-    modelSlug: 'all-MiniLM-L6-v2',  // Use catalog slug
-    generateEmbeddings: true,
+    modelUrl: 'all-MiniLM-L6-v2',  // Model catalog slug
   ),
 );
 
-final embeddings = await embeddingsModel.generate(['Hello world', 'AI is amazing']);
+final result = await embeddingsModel.embedDocuments(['Hello world', 'AI is amazing']);
+print('Generated ${result.output.length} embeddings');
 ```
 
 ## Advanced Usage
@@ -112,7 +113,7 @@ await for (final chunk in agent.stream('Tell me a story')) {
 
 ```dart
 final optimizedOptions = CactusChatModelOptions(
-  modelSlug: 'qwen3-0.6',   // Lightweight model
+  modelUrl: 'qwen3-0.6',    // Lightweight model
   contextSize: 2048,        // Smaller context = faster inference
 );
 ```

@@ -30,74 +30,35 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
   static final Logger _logger = Logger('dartantic.cactus.chat_model');
   
   cactus.CactusLM? _lm;
-  cactus.CactusVLM? _vlm;
-  cactus.CactusAgent? _agent;  // For tool calling support
   bool _isInitialized = false;
 
   /// Initializes the underlying Cactus model.
   /// 
-  /// Determines whether to use text-only (CactusLM) or vision (CactusVLM) 
-  /// model based on conversation content and options.
-  Future<void> _ensureInitialized(CactusChatModelOptions options, {bool needsVision = false}) async {
+  /// Uses the new Cactus main branch API with model slugs and improved initialization.
+  Future<void> _ensureInitialized(CactusChatModelOptions options) async {
     if (_isInitialized) return;
 
     try {
-      _logger.info('Initializing Cactus model: ${options.modelUrl} (vision: ${needsVision || options.supportVision})');
+      _logger.info('Initializing Cactus model: ${options.modelUrl}');
       
-      if ((needsVision || options.supportVision) && options.mmprojUrl != null) {
-        // Initialize Vision Language Model
-        _vlm = cactus.CactusVLM();
-        
-        // Download models if URL is provided
-        await _vlm!.download(
-          modelUrl: options.modelUrl,
-          mmprojUrl: options.mmprojUrl!,
-          modelFilename: options.modelFilename,
-          mmprojFilename: options.mmprojFilename,
-          onProgress: (double? progress, String status, bool isError) {
-            _logger.info('Download: $status ${progress != null ? '${(progress * 100).toInt()}%' : ''}');
-          },
-        );
-        
-        // Initialize the model
-        final success = await _vlm!.init(
+      // Initialize Language Model
+      _lm = cactus.CactusLM();
+      
+      // Download model using new API (model slug instead of URL)
+      await _lm!.downloadModel(
+        model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
+        downloadProcessCallback: (double? progress, String status, bool isError) {
+          _logger.info('Download: $status ${progress != null ? '${(progress * 100).toInt()}%' : ''}');
+        },
+      );
+      
+      // Initialize the model using new API
+      await _lm!.initializeModel(
+        params: cactus.CactusInitParams(
+          model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
           contextSize: options.contextSize,
-          gpuLayers: options.gpuLayers,
-          threads: options.threads,
-          modelFilename: options.modelFilename,
-          mmprojFilename: options.mmprojFilename,
-          chatTemplate: options.chatTemplate,
-        );
-        
-        if (!success) {
-          throw Exception('Failed to initialize Cactus VLM');
-        }
-      } else {
-        // Initialize Language Model
-        _lm = cactus.CactusLM();
-        
-        // Download model if URL is provided
-        await _lm!.download(
-          modelUrl: options.modelUrl,
-          modelFilename: options.modelFilename,
-          onProgress: (double? progress, String status, bool isError) {
-            _logger.info('Download: $status ${progress != null ? '${(progress * 100).toInt()}%' : ''}');
-          },
-        );
-        
-        // Initialize the model
-        final success = await _lm!.init(
-          contextSize: options.contextSize,
-          gpuLayers: options.gpuLayers,
-          threads: options.threads,
-          modelFilename: options.modelFilename,
-          chatTemplate: options.chatTemplate,
-        );
-        
-        if (!success) {
-          throw Exception('Failed to initialize Cactus LM');
-        }
-      }
+        ),
+      );
       
       _isInitialized = true;
       _logger.info('Cactus model initialized successfully');
@@ -106,18 +67,6 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
       _logger.severe('Failed to initialize Cactus model', e, stackTrace);
       rethrow;
     }
-  }
-
-  /// Checks if messages contain visual content (images).
-  bool _hasVisualContent(List<ChatMessage> messages) {
-    for (final message in messages) {
-      for (final part in message.parts) {
-        if (part is DataPart && part.mimeType.startsWith('image/')) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   @override
@@ -152,12 +101,9 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
     // Standard completion flow
     _logger.info('Using standard completion without tools or typed output');
     
-    // Check if we need vision model based on message content
-    final needsVision = _hasVisualContent(messages) || opts.supportVision;
-    
-    await _ensureInitialized(opts, needsVision: needsVision);
+    await _ensureInitialized(opts);
 
-    if (!_isInitialized || (_lm == null && _vlm == null)) {
+    if (!_isInitialized || _lm == null) {
       throw StateError('Model not initialized');
     }
 
@@ -165,38 +111,44 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
     yield* _sendStandardCompletion(messages, opts);
   }
 
-  /// Sends completion using CactusAgent for tool calling support.
+  /// Sends completion with tool calling support using the new CactusLM API.
+  /// 
+  /// Tools are now built into CactusCompletionParams instead of requiring CactusAgent.
   Stream<ChatResult<ChatMessage>> _sendWithCactusAgent(
     List<ChatMessage> messages,
     CactusChatModelOptions options,
     JsonSchema? outputSchema,
   ) async* {
-    _logger.info('Starting tool calling completion with CactusAgent');
+    _logger.info('Starting tool calling completion with CactusLM tools');
     
-    // Ensure agent is initialized
-    await _ensureAgentInitialized(options);
+    // Ensure model is initialized
+    await _ensureInitialized(options);
     
-    // Register tools with the agent
-    if (tools != null && tools!.isNotEmpty) {
-      ToolConverters.registerTools(_agent!, tools!);
-    }
+    // Convert dartantic tools to Cactus tools format
+    final cactusTools = tools != null && tools!.isNotEmpty
+        ? ToolConverters.toCactusTools(tools!)
+        : null;
     
     // Convert messages to Cactus format using existing mapper
     final cactusMessages = CactusMessageMappers.toCactusMessages(messages);
     
     try {
-      // Use CactusAgent.completionWithTools for tool calling
-      // Returns CompletionResult with .result (text) and .toolCalls properties
-      final result = await _agent!.completionWithTools(
-        cactusMessages,
-        maxTokens: options.maxTokens,
-        temperature: temperature ?? options.temperature,
+      // Use generateCompletion with tools parameter
+      final result = await _lm!.generateCompletion(
+        messages: cactusMessages,
+        params: cactus.CactusCompletionParams(
+          model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
+          maxTokens: options.maxTokens,
+          temperature: temperature ?? options.temperature,
+          stopSequences: options.stopSequences,
+          tools: cactusTools,
+        ),
       );
       
-      _logger.info('CactusAgent completion successful');
+      _logger.info('Tool calling completion successful');
       
-      // Extract text from result (CompletionResult has .result property)
-      final responseText = result.result ?? '';
+      // Extract text from result
+      final responseText = result.response;
       
       // Convert result to dartantic format
       final dartanticMessage = ChatMessage.model(responseText);
@@ -211,7 +163,7 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
       );
       
     } catch (error, stackTrace) {
-      _logger.severe('CactusAgent completion failed', error, stackTrace);
+      _logger.severe('Tool calling completion failed', error, stackTrace);
       rethrow;
     }
   }
@@ -362,39 +314,22 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
     // Convert messages to Cactus format
     final cactusMessages = CactusMessageMappers.toCactusMessages(messages);
     
-    // Extract image paths if vision model (await the Future)
-    final imagePaths = await CactusMessageMappers.extractImagePaths(messages);
-    
     try {
-      // Accumulate tokens for streaming
-      var accumulatedText = '';
+      // Generate completion using new API with streaming
+      final streamResult = await _lm!.generateCompletionStream(
+        messages: cactusMessages,
+        params: cactus.CactusCompletionParams(
+          model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
+          maxTokens: options.maxTokens,
+          temperature: temperature ?? options.temperature,
+          stopSequences: options.stopSequences,
+        ),
+      );
       
-      // Generate completion with streaming
-      if (_vlm != null) {
-        // Use Vision Language Model with proper imagePaths parameter
-        await _vlm!.completion(
-          cactusMessages,
-          imagePaths: imagePaths,
-          maxTokens: options.maxTokens,
-          temperature: temperature ?? options.temperature,
-          stopSequences: options.stopSequences,
-          onToken: (String token) {
-            accumulatedText += token;
-            return true;
-          },
-        );
-      } else {
-        // Use Language Model
-        await _lm!.completion(
-          cactusMessages,
-          maxTokens: options.maxTokens,
-          temperature: temperature ?? options.temperature,
-          stopSequences: options.stopSequences,
-          onToken: (String token) {
-            accumulatedText += token;
-            return true;
-          },
-        );
+      // Accumulate tokens from stream
+      var accumulatedText = '';
+      await for (final token in streamResult.stream) {
+        accumulatedText += token;
       }
       
       // Yield final result
@@ -409,53 +344,11 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
     }
   }
 
-  /// Ensures CactusAgent is initialized for tool calling.
-  Future<void> _ensureAgentInitialized(CactusChatModelOptions options) async {
-    if (_agent != null) return;
-
-    _logger.info('Initializing CactusAgent for tool calling');
-    
-    try {
-      _agent = cactus.CactusAgent();
-      
-      // Download model if needed
-      await _agent!.download(
-        modelUrl: options.modelUrl,
-        modelFilename: options.modelFilename,
-        onProgress: (double? progress, String status, bool isError) {
-          if (isError) {
-            _logger.severe('Agent download error: $status');
-          } else {
-            _logger.info('Agent download: $status ${progress != null ? '${(progress * 100).toInt()}%' : ''}');
-          }
-        },
-      );
-      
-      // Initialize agent
-      await _agent!.init(
-        contextSize: options.contextSize,
-        gpuLayers: options.gpuLayers,
-        generateEmbeddings: true,
-      );
-      
-      _logger.info('CactusAgent initialized successfully');
-      
-    } catch (e, stackTrace) {
-      _logger.severe('Failed to initialize CactusAgent', e, stackTrace);
-      rethrow;
-    }
-  }
-
   @override
   void dispose() {
     try {
-      _lm?.dispose();
-      _vlm?.dispose();
-      // CactusAgent doesn't have dispose method, just clear the reference
-      // _agent?.dispose();
+      _lm?.unload();  // New API uses unload() instead of dispose()
       _lm = null;
-      _vlm = null;
-      _agent = null;
       _isInitialized = false;
       _logger.info('Cactus model disposed');
     } catch (e, stackTrace) {

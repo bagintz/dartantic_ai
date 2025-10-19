@@ -1,57 +1,43 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 
-/// Configuration options for Cactus chat models.
+/// Configuration options for Cactus chat models (main branch API).
+/// 
+/// Uses model slugs from the Cactus catalog instead of direct URLs.
+/// Vision and TTS support removed in main branch.
 class CactusChatModelOptions extends ChatModelOptions {
-  /// URL to the GGUF model file (HuggingFace URL or local path).
-  final String modelUrl;
-
-  /// Custom filename for cached model (optional).
-  final String? modelFilename;
-
-  /// URL to multimodal projection GGUF file for vision models (optional).
-  final String? mmprojUrl;
-
-  /// Custom filename for cached mmproj model (optional).
-  final String? mmprojFilename;
-
-  /// Custom chat template in Jinja2 format (optional).
-  final String? chatTemplate;
+  /// Model slug from Cactus catalog (e.g., 'qwen3-0.6', 'phi-3-mini-4k-instruct').
+  /// 
+  /// See available models at https://github.com/topoteretes/cactus-flutter
+  final String modelUrl;  // TODO: Rename to modelSlug in next major version to avoid breaking changes
 
   /// Context window size in tokens.
+  /// 
+  /// Larger context windows require more memory. Default: 2048
   final int contextSize;
 
-  /// Number of layers to run on GPU (0 = CPU only).
-  final int gpuLayers;
-
-  /// Number of CPU threads to use.
-  final int threads;
-
-  /// Whether this model supports vision/multimodal input.
-  final bool supportVision;
-
-  /// Temperature for controlling randomness in generation.
+  /// Temperature for controlling randomness in generation (0.0-2.0).
+  /// 
+  /// Lower values (0.1-0.3) are more deterministic.
+  /// Higher values (0.7-1.0) are more creative.
   final double temperature;
 
   /// Maximum number of tokens to generate.
   final int maxTokens;
 
   /// List of stop sequences to halt generation.
+  /// 
+  /// The model will stop generating when any of these sequences appear.
   final List<String> stopSequences;
 
-  /// Enterprise token for cloud features (optional).
+  /// Enterprise token for cloud/hybrid completion mode (optional).
+  /// 
+  /// When provided, enables fallback to cloud-based completion if local fails.
   final String? cactusToken;
 
   /// Creates new Cactus chat model options.
   const CactusChatModelOptions({
     required this.modelUrl,
-    this.modelFilename,
-    this.mmprojUrl,
-    this.mmprojFilename,
-    this.chatTemplate,
     this.contextSize = 2048,
-    this.gpuLayers = 0,
-    this.threads = 4,
-    this.supportVision = false,
     this.temperature = 0.7,
     this.maxTokens = 2048,
     this.stopSequences = const [],
@@ -59,33 +45,29 @@ class CactusChatModelOptions extends ChatModelOptions {
   });
 }
 
-/// Configuration options for Cactus embeddings models.
+/// Configuration options for Cactus embeddings models (main branch API).
+/// 
+/// Uses model slugs from the Cactus catalog instead of direct URLs.
 class CactusEmbeddingsModelOptions extends EmbeddingsModelOptions {
-  /// URL to the GGUF model file (HuggingFace URL or local path).
-  final String modelUrl;
-
-  /// Custom filename for cached model (optional).
-  final String? modelFilename;
+  /// Model slug from Cactus catalog (e.g., 'qwen3-0.6').
+  /// 
+  /// See available models at https://github.com/topoteretes/cactus-flutter
+  final String modelUrl;  // TODO: Rename to modelSlug in next major version to avoid breaking changes
 
   /// Context window size in tokens.
+  /// 
+  /// Larger context windows require more memory. Default: 2048
   final int contextSize;
 
-  /// Number of layers to run on GPU (0 = CPU only).
-  final int gpuLayers;
-
-  /// Number of CPU threads to use.
-  final int threads;
-
-  /// Enterprise token for cloud features (optional).
+  /// Enterprise token for cloud/hybrid features (optional).
+  /// 
+  /// When provided, enables fallback to cloud-based embeddings if local fails.
   final String? cactusToken;
 
   /// Creates new Cactus embeddings model options.
   const CactusEmbeddingsModelOptions({
     required this.modelUrl,
-    this.modelFilename,
     this.contextSize = 2048,
-    this.gpuLayers = 0,
-    this.threads = 4,
     this.cactusToken,
   });
 }
