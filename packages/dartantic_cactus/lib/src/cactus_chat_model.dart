@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cactus/cactus.dart' as cactus;
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
 
@@ -31,6 +32,18 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
   
   cactus.CactusLM? _lm;
   bool _isInitialized = false;
+  
+  /// Visible for testing only - allows tests to inject mock LM
+  @visibleForTesting
+  set testLM(cactus.CactusLM? lm) {
+    _lm = lm;
+  }
+  
+  /// Visible for testing only - allows tests to mark model as initialized
+  @visibleForTesting
+  set testInitialized(bool initialized) {
+    _isInitialized = initialized;
+  }
 
   /// Initializes the underlying Cactus model.
   /// 
@@ -137,7 +150,6 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
       final result = await _lm!.generateCompletion(
         messages: cactusMessages,
         params: cactus.CactusCompletionParams(
-          model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
           maxTokens: options.maxTokens,
           temperature: temperature ?? options.temperature,
           stopSequences: options.stopSequences,
@@ -319,7 +331,6 @@ class CactusChatModel extends ChatModel<CactusChatModelOptions> {
       final streamResult = await _lm!.generateCompletionStream(
         messages: cactusMessages,
         params: cactus.CactusCompletionParams(
-          model: options.modelUrl, // TODO: This should be modelSlug after Phase 3
           maxTokens: options.maxTokens,
           temperature: temperature ?? options.temperature,
           stopSequences: options.stopSequences,

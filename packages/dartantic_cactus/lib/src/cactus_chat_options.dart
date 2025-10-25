@@ -40,7 +40,8 @@ class CactusChatModelOptions extends ChatModelOptions {
     this.contextSize = 2048,
     this.temperature = 0.7,
     this.maxTokens = 2048,
-    this.stopSequences = const [],
+    // Match Cactus SDK defaults for parity
+    this.stopSequences = const ["<|im_end|>", "<end_of_turn>"],
     this.cactusToken,
   });
 }

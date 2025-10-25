@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - Main Branch Migration
 
+### Changed (2025-10-25)
+- Updated Cactus SDK to commit `310992e` (Oct 24, 2025): thread locks, parameter changes, and internal reorg
+- Removed deprecated `model` parameter from `CactusCompletionParams` usage in chat model
+- Aligned default `stopSequences` with Cactus SDK defaults: `<|im_end|>`, `<end_of_turn>`
+
 ### ⚠️ Breaking Changes
 - **REMOVED**: Vision/multimodal support (VLM) - not available in Cactus main branch
 - **REMOVED**: TTS (text-to-speech) support - not available in Cactus main branch

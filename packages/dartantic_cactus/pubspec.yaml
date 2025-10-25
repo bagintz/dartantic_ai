@@ -16,7 +16,7 @@ dependencies:
   cactus:
     git:
       url: https://github.com/cactus-compute/cactus-flutter.git
-      ref: main
+      ref: 310992ef8b6073f42d34f7872c5c4dc0fcfe7408  # Oct 24, 2025 - thread locks, param changes, reorg
   flutter:
     sdk: flutter
   http: ^1.4.0
