@@ -13,6 +13,9 @@ A [dartantic_ai](https://pub.dev/packages/dartantic_interface) provider that ena
 - 🔄 **Streaming**: Real-time token streaming for chat applications
 - 🎨 **Embeddings**: Generate text embeddings for semantic search
 - ☁️ **Hybrid Mode**: Optional cloud fallback for enhanced capabilities
+- 🔧 **Automatic Tool Filtering**: Smart tool selection based on query relevance (Cactus SDK 0.3.1+)
+- 🗂️ **Built-in RAG**: Vector search capabilities for retrieval-augmented generation (SDK-level)
+- ⚡ **Optimized Defaults**: Temperature 0.7, topK 20 for improved response quality
 
 ## Known Limitations
 
