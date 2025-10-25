@@ -7,3 +7,6 @@ coverage/
 
 # AI development notes
 ai_notes/
+
+# Full test app (not for distribution)
+cactus_test_app/
