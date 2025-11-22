@@ -1,0 +1,28 @@
+name: dartantic_optimization
+description: A self-improvement orchestration layer that coordinates evaluation, diagnosis, and evolution into autonomous optimization loops.
+version: 0.1.0
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  dartantic_evaluation: any
+  dartantic_evolution: any
+  dartantic_diagnosis: any
+  logging: ^1.2.0
+  meta: ^1.11.0
+
+dependency_overrides:
+  dartantic_evaluation:
+    path: ../dartantic_evaluation
+  dartantic_evolution:
+    path: ../dartantic_evolution
+  dartantic_diagnosis:
+    path: ../dartantic_diagnosis
+  dartantic_ai:
+    path: ../dartantic_ai
+  dartantic_interface:
+    path: ../dartantic_interface
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.24.0
