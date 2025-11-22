@@ -1,0 +1,16 @@
+name: dartantic_evolution
+description: A genetic algorithm and configuration optimization framework for evolving AI workflow configurations.
+version: 0.0.1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  dartantic_evaluation:
+    path: ../dartantic_evaluation
+  logging: ^1.2.0
+  uuid: ^4.0.0
+  meta: ^1.11.0
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.24.0
