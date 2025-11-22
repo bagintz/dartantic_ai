@@ -1,0 +1,28 @@
+name: dartantic_diagnosis
+description: A performance analysis and weakness identification framework for AI systems, providing automated root cause analysis and targeted improvement recommendations.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dartantic_ai: ^1.2.0
+  dartantic_evaluation: ^0.0.1
+  dartantic_evolution: ^0.0.1
+  json_schema: ^5.1.8
+  logging: ^1.3.0
+  meta: ^1.16.0
+  collection: ^1.19.0
+
+dependency_overrides:
+  dartantic_ai:
+    path: ../dartantic_ai
+  dartantic_evaluation:
+    path: ../dartantic_evaluation
+  dartantic_evolution:
+    path: ../dartantic_evolution
+
+dev_dependencies:
+  test: ^1.24.0
+  all_lint_rules_community: ^0.0.43
