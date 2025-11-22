@@ -11,12 +11,12 @@ dependencies:
     path: ../dartantic_interface
   dartantic_ai:
     path: ../dartantic_ai
-  objectbox: ^2.4.0
+  objectbox: ^4.0.0
 
 dev_dependencies:
   test: ^1.24.0
-  build_runner: ^2.4.8
-  objectbox_generator: ^2.4.0
+  build_runner: ^2.4.7
+  objectbox_generator: ^4.0.0
 
 dependency_overrides:
   dartantic_interface:

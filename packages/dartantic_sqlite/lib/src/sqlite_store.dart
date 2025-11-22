@@ -1,16 +1,28 @@
 import 'dart:io';
 import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'package:logging/logging.dart';
+import 'sql_generator.dart';
 
 /// A SQLite implementation of [DatabaseStore].
 class SQLiteStore implements DatabaseStore {
   final String _path;
   final String _id;
+  final Agent? _agent;
+  late final SqlGenerator? _sqlGenerator;
   Database? _db;
   final Logger _logger = Logger('SQLiteStore');
 
-  SQLiteStore(this._path, {String? id}) : _id = id ?? 'sqlite_${DateTime.now().millisecondsSinceEpoch}';
+  SQLiteStore(this._path, {String? id, Agent? agent})
+      : _id = id ?? 'sqlite_${DateTime.now().millisecondsSinceEpoch}',
+        _agent = agent {
+    if (_agent != null) {
+      _sqlGenerator = SqlGenerator(_agent);
+    } else {
+      _sqlGenerator = null;
+    }
+  }
 
   @override
   String get storeId => _id;
@@ -19,7 +31,7 @@ class SQLiteStore implements DatabaseStore {
   Set<StoreCaps> get caps => {
         StoreCaps.sqlDatabase,
         StoreCaps.batchOperations,
-        // Add naturalLanguageToSql if an agent is provided (future implementation)
+        if (_agent != null) StoreCaps.naturalLanguageToSql,
       };
 
   @override
@@ -88,8 +100,11 @@ class SQLiteStore implements DatabaseStore {
 
   @override
   Future<String> generateSql(String naturalLanguageQuery, {String? context}) async {
-    // TODO: Implement using an Agent if provided
-    throw UnimplementedError('Natural language to SQL generation not yet implemented');
+    if (_sqlGenerator == null) {
+      throw UnsupportedError('Agent not provided. Cannot generate SQL.');
+    }
+    final schema = await getSchema();
+    return _sqlGenerator.generate(naturalLanguageQuery, schema, context: context);
   }
 
   @override

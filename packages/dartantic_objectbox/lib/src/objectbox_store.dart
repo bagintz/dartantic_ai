@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'document_entity.dart';
@@ -34,7 +35,7 @@ class ObjectBoxStore implements VectorStore {
   Future<void> initialize() async {
     if (_store != null) return;
     
-    _store = openStore(directory: _path);
+    _store = await openStore(directory: _path);
     _box = _store!.box<DocumentEntity>();
   }
 
@@ -76,32 +77,57 @@ class ObjectBoxStore implements VectorStore {
   Future<List<SearchResult>> similaritySearch(String query, {int limit = 5, double threshold = 0.7}) async {
     _checkInitialized();
 
-    // List<double> queryVector;
-    if (_embeddingAgent != null) {
-      await _embeddingAgent.embedQuery(query);
-      // queryVector = result.embeddings;
-    } else {
+    if (_embeddingAgent == null) {
       throw StateError('Embedding agent required for similarity search from text query');
     }
 
-    final queryBuilder = _box!.query(
-      DocumentEntity_.embedding.lessThan(1.0) // Placeholder for vector search
-    );
-    // Note: ObjectBox Dart vector search API might differ in version 2.4.0 vs 4.0.0
-    // For 2.4.0, vector search might not be fully supported or has different API.
-    // We are using 2.4.0 to satisfy build_runner constraints.
-    // Assuming standard query for now as placeholder if vector search API is missing.
-    
-    final queryObj = queryBuilder.build();
-    final results = queryObj.find(); // findWithScores might be missing in older versions
-    queryObj.close();
+    final result = await _embeddingAgent.embedQuery(query);
+    final queryVector = result.embeddings;
 
-    return results.map((entity) {
-      return SearchResult(
-        document: _fromEntity(entity),
-        score: 1.0, // Dummy score as findWithScores is missing
-      );
-    }).toList();
+    // Try to use native vector search if available (ObjectBox 4.0+)
+    // Since we had issues resolving the exact API in the environment,
+    // we implement a manual cosine similarity fallback.
+    // This ensures functionality even if the native vector search isn't fully linked or API differs.
+    
+    // Fetch all documents with embeddings
+    // Note: For large datasets, this is inefficient. 
+    // Ideally, we should use the native nearestNeighbors API when the environment is fully set up.
+    final allDocs = _box!.getAll();
+    final results = <SearchResult>[];
+
+    for (final docEntity in allDocs) {
+      if (docEntity.embedding == null || docEntity.embedding!.isEmpty) continue;
+      
+      final similarity = _cosineSimilarity(queryVector, docEntity.embedding!);
+      if (similarity >= threshold) {
+        results.add(SearchResult(
+          document: _fromEntity(docEntity),
+          score: similarity,
+        ));
+      }
+    }
+
+    // Sort by similarity descending
+    results.sort((a, b) => b.score.compareTo(a.score));
+
+    return results.take(limit).toList();
+  }
+
+  double _cosineSimilarity(List<double> a, List<double> b) {
+    if (a.length != b.length) return 0.0;
+    
+    var dotProduct = 0.0;
+    var normA = 0.0;
+    var normB = 0.0;
+    
+    for (var i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    if (normA == 0.0 || normB == 0.0) return 0.0;
+    return dotProduct / (sqrt(normA) * sqrt(normB));
   }
 
   @override
@@ -118,22 +144,18 @@ class ObjectBoxStore implements VectorStore {
     _checkInitialized();
 
     if (ids != null && ids.isNotEmpty) {
-      // This is inefficient because we store string IDs but ObjectBox uses int IDs.
-      // We need to find the int IDs for the string IDs.
-      // A real implementation should probably index the string ID.
-      
-      // TODO: Use generated property query
-      /*
       final query = _box!.query(DocumentEntity_.docId.oneOf(ids)).build();
       query.remove();
       query.close();
-      */
     }
     
     if (filters != null && filters.isNotEmpty) {
-      // Implement metadata filtering
-      // This is complex with JSON metadata. 
-      // For now, we might need to fetch and filter in memory or use a better schema.
+      // Metadata filtering is complex with JSON storage.
+      // Ideally we would promote specific metadata fields to properties.
+      // For now, we can fetch and filter in memory if needed, but deleteDocuments
+      // usually implies efficient deletion.
+      // We'll log a warning that metadata filters are not fully supported yet.
+      // _logger.warning('Metadata filters in deleteDocuments are not fully supported in this version.');
     }
   }
 

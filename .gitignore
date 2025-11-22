@@ -9,3 +9,14 @@ pubspec.lock
 .DS_Store
 packages/dartantic_ai/example/.env
 ai_notes
+
+# Build artifacts
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ObjectBox binaries
+download/
+*.dylib
+*.so
+*.dll

@@ -1,0 +1,30 @@
+name: dartantic_sqlite_flutter
+description: Flutter-specific SQLite store implementation for dartantic with bundled native binaries
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dartantic_interface:
+    path: ../dartantic_interface
+  dartantic_ai:
+    path: ../dartantic_ai
+  dartantic_sqlite:
+    path: ../dartantic_sqlite
+  sqlite3_flutter_libs: ^0.5.0
+  path_provider: ^2.1.0
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  test: ^1.24.0
+
+dependency_overrides:
+  dartantic_interface:
+    path: ../dartantic_interface
