@@ -69,6 +69,7 @@ class OpenAIResponsesProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool? enableThinking,
     OpenAIResponsesChatModelOptions? options,
   }) {
     validateApiKeyPresence();

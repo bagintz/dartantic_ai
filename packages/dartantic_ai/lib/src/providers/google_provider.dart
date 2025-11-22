@@ -75,6 +75,7 @@ class GoogleProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool? enableThinking,
     GoogleChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;

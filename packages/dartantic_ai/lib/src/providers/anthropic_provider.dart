@@ -55,6 +55,7 @@ class AnthropicProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool? enableThinking,
     AnthropicChatOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
