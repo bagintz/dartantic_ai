@@ -1,0 +1,25 @@
+name: dartantic_evaluation
+description: A comprehensive multi-dimensional evaluation framework for AI workflows with Pareto frontier analysis.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dartantic_ai: ^1.2.0
+  dartantic_interface: ^1.1.0
+  collection: ^1.19.0
+  json_schema: ^5.2.1
+  logging: ^1.3.0
+  meta: ^1.16.0
+
+dependency_overrides:
+  dartantic_ai:
+    path: ../dartantic_ai
+  dartantic_interface:
+    path: ../dartantic_interface
+
+dev_dependencies:
+  test: ^1.24.0
+  all_lint_rules_community: ^0.0.43
