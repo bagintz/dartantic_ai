@@ -131,6 +131,9 @@ class GoogleProvider
   }
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final apiKey = this.apiKey ?? getEnv(defaultApiKeyName);
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;

@@ -5,6 +5,7 @@ description: >
 version: 1.2.0
 repository: https://github.com/csells/dartantic_ai
 homepage: https://docs.dartantic.ai
+publish_to: none
 
 environment:
   sdk: ^3.9.0
@@ -12,7 +13,8 @@ environment:
 dependencies:
   anthropic_sdk_dart: ^0.3.0+1
   collection: ^1.19.1
-  dartantic_interface: ^1.1.0
+  dartantic_interface:
+    path: ../dartantic_interface
   google_cloud_ai_generativelanguage_v1beta: ^0.1.2
   google_cloud_protobuf: ^0.1.0
   html: ^0.15.6

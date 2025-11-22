@@ -3,10 +3,14 @@ import '../chat/chat_model_options.dart';
 import '../embeddings/embeddings_model.dart';
 import '../embeddings/embeddings_model_options.dart';
 import '../model/model.dart';
+import '../model/model_caps.dart';
 import '../tool.dart';
 import 'provider_caps.dart';
 
 export 'provider_caps.dart';
+
+/// Static cache for model capabilities across all providers.
+final _modelCapsCache = <String, List<ModelCaps>?>{};
 
 /// Provides a unified interface for accessing all major LLM, chat, and
 /// embedding providers in dartantic_ai.
@@ -74,6 +78,36 @@ abstract class Provider<
   /// caching, you should implement it yourself rather than relying on the
   /// provider.
   Stream<ModelInfo> listModels();
+
+  /// Returns the capabilities of a specific model, if known.
+  ///
+  /// This method includes built-in caching to avoid redundant API calls.
+  /// Providers should implement [fetchModelCaps] instead of overriding this method.
+  ///
+  /// [modelName]: The model name/identifier
+  /// [modelData]: Optional raw model data from the provider's listing API.
+  Future<List<ModelCaps>?> getModelCaps(String modelName, [Map<String, dynamic>? modelData]) async {
+    final cacheKey = '$name:$modelName';
+    if (_modelCapsCache.containsKey(cacheKey)) {
+      return _modelCapsCache[cacheKey];
+    }
+    final caps = await fetchModelCaps(modelName, modelData);
+    _modelCapsCache[cacheKey] = caps;
+    return caps;
+  }
+
+  /// Fetches the capabilities of a specific model from the provider.
+  ///
+  /// Providers should implement this method to return model-specific
+  /// capabilities when possible. Return null if the provider cannot
+  /// determine capabilities for the given model.
+  ///
+  /// This method is called by [getModelCaps] after checking the cache.
+  ///
+  /// [modelName]: The model name/identifier
+  /// [modelData]: Optional raw model data from the provider's listing API.
+  ///   Providers may use this to extract capabilities without additional API calls.
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]);
 
   /// Creates a chat model instance for this provider.
   ChatModel<TChatOptions> createChatModel({
