@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:uuid/uuid.dart';
 import '../interfaces/workflow_node.dart';
 import '../state/node_context.dart';
-import '../state/graph_state_impl.dart';
+import '../state/workflow_state.dart';
 
 /// Node that executes multiple sub-nodes in parallel
 class ParallelNode implements WorkflowNode {
@@ -29,7 +29,7 @@ class ParallelNode implements WorkflowNode {
   List<String> get dependencies => List.unmodifiable(_dependencies);
   
   @override
-  Stream<NodeResult> execute(NodeContext context, GraphState state) async* {
+  Stream<NodeResult> execute(NodeContext context, WorkflowState state) async* {
     try {
       final futures = _nodes.map((node) => _executeSubNode(node, context, state));
       final results = await Future.wait(futures);
@@ -69,7 +69,7 @@ class ParallelNode implements WorkflowNode {
   Future<NodeResult> _executeSubNode(
     WorkflowNode node, 
     NodeContext context, 
-    GraphState state,
+    WorkflowState state,
   ) async {
     // Create isolated context for sub-node if needed, or pass through
     // For now passing through context

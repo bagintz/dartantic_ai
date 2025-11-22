@@ -23,9 +23,9 @@ class NodeExecution {
   Duration get duration => endTime.difference(startTime);
 }
 
-/// Extended state for multi-agent graph workflows
-class GraphState extends StreamingState {
-  GraphState({
+/// Extended state for multi-agent workflows
+class WorkflowState extends StreamingState {
+  WorkflowState({
     required super.conversationHistory,
     required super.toolMap,
   });

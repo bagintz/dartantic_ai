@@ -4,7 +4,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:uuid/uuid.dart';
 import '../interfaces/workflow_node.dart';
 import '../state/node_context.dart';
-import '../state/graph_state_impl.dart';
+import '../state/workflow_state.dart';
 
 /// Node that wraps a dartantic_ai Agent
 class AgentNode implements WorkflowNode {
@@ -34,7 +34,7 @@ class AgentNode implements WorkflowNode {
   List<String> get dependencies => List.unmodifiable(_dependencies);
   
   @override
-  Stream<NodeResult> execute(NodeContext context, GraphState state) async* {
+  Stream<NodeResult> execute(NodeContext context, WorkflowState state) async* {
     try {
       // Build context-aware prompt
       final contextualPrompt = _buildPrompt(context, state);
@@ -81,7 +81,7 @@ class AgentNode implements WorkflowNode {
     }
   }
   
-  String _buildPrompt(NodeContext context, GraphState state) {
+  String _buildPrompt(NodeContext context, WorkflowState state) {
     final buffer = StringBuffer(_prompt);
     
     // Add context from previous nodes

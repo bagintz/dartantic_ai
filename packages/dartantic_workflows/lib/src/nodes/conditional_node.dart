@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:uuid/uuid.dart';
 import '../interfaces/workflow_node.dart';
 import '../state/node_context.dart';
-import '../state/graph_state_impl.dart';
+import '../state/workflow_state.dart';
 
 /// Function to evaluate condition
-typedef ConditionEvaluator = FutureOr<bool> Function(NodeContext context, GraphState state);
+typedef ConditionEvaluator = FutureOr<bool> Function(NodeContext context, WorkflowState state);
 
 /// Node that routes execution based on a condition
 class ConditionalNode implements WorkflowNode {
@@ -36,7 +36,7 @@ class ConditionalNode implements WorkflowNode {
   List<String> get dependencies => List.unmodifiable(_dependencies);
   
   @override
-  Stream<NodeResult> execute(NodeContext context, GraphState state) async* {
+  Stream<NodeResult> execute(NodeContext context, WorkflowState state) async* {
     try {
       final result = await condition(context, state);
       final nextNodeId = result ? trueNextNodeId : falseNextNodeId;

@@ -1,6 +1,5 @@
 import 'package:test/test.dart';
-import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+import 'package:dartantic_workflows/dartantic_workflows.dart';
 
 void main() {
   group('Agent Integration', () {
@@ -10,21 +9,21 @@ void main() {
       // Since we can't easily mock the Agent class without a lot of setup,
       // we'll test the orchestration logic with MockNodes first.
       
-      final workflow = WorkflowGraph.builder()
+      final workflow = GraphWorkflow.builder()
         .addNode('node1', MockNode('node1'))
         .addNode('node2', MockNode('node2'))
         .addEdge('node1', 'node2')
         .build();
         
-      final state = GraphState(
+      final state = WorkflowState(
         conversationHistory: [],
         toolMap: {},
       );
       
-      final orchestrator = DefaultGraphOrchestrator();
+      final orchestrator = GraphEngine();
       orchestrator.initialize(state);
       
-      final results = await orchestrator.executeGraph(workflow, state, <String, dynamic>{}).toList();
+      final results = await orchestrator.execute(workflow, state).toList();
       
       expect(results.length, greaterThan(0));
       expect(state.hasNodeExecuted('node1'), isTrue);
@@ -33,7 +32,7 @@ void main() {
     });
     
     test('executes parallel workflow', () async {
-      final workflow = WorkflowGraph.builder()
+      final workflow = GraphWorkflow.builder()
         .addNode('start', MockNode('start'))
         .addNode('parallel', ParallelNode([
           MockNode('p1'),
@@ -44,15 +43,15 @@ void main() {
         .addEdge('parallel', 'end')
         .build();
         
-      final state = GraphState(
+      final state = WorkflowState(
         conversationHistory: [],
         toolMap: {},
       );
       
-      final orchestrator = DefaultGraphOrchestrator();
+      final orchestrator = GraphEngine();
       orchestrator.initialize(state);
       
-      await orchestrator.executeGraph(workflow, state, <String, dynamic>{}).drain<void>();
+      await orchestrator.execute(workflow, state).drain<void>();
       
       expect(state.hasNodeExecuted('start'), isTrue);
       expect(state.hasNodeExecuted('parallel'), isTrue);
@@ -60,7 +59,7 @@ void main() {
     });
     
     test('executes conditional workflow', () async {
-      final workflow = WorkflowGraph.builder()
+      final workflow = GraphWorkflow.builder()
         .addNode('start', MockNode('start'))
         .addNode('condition', ConditionalNode(
           condition: (context, state) => true,
@@ -81,15 +80,15 @@ void main() {
         .addEdge('condition', 'falsePath')
         .build();
         
-      final state = GraphState(
+      final state = WorkflowState(
         conversationHistory: [],
         toolMap: {},
       );
       
-      final orchestrator = DefaultGraphOrchestrator();
+      final orchestrator = GraphEngine();
       orchestrator.initialize(state);
       
-      await orchestrator.executeGraph(workflow, state, <String, dynamic>{}).drain<void>();
+      await orchestrator.execute(workflow, state).drain<void>();
       
       expect(state.hasNodeExecuted('condition'), isTrue);
       expect(state.getSharedData<String>('condition_decision'), equals('truePath'));
@@ -113,7 +112,7 @@ class MockNode implements WorkflowNode {
   List<String> get dependencies => [];
   
   @override
-  Stream<NodeResult> execute(NodeContext context, GraphState state) async* {
+  Stream<NodeResult> execute(NodeContext context, WorkflowState state) async* {
     yield NodeResult.success(
       output: 'Mock output from $id',
       messages: [],

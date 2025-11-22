@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+import 'package:dartantic_workflows/dartantic_workflows.dart';
 
 class MockNode implements WorkflowNode {
   @override
@@ -17,7 +17,7 @@ class MockNode implements WorkflowNode {
   List<String> get dependencies => [];
   
   @override
-  Stream<NodeResult> execute(NodeContext context, GraphState state) async* {
+  Stream<NodeResult> execute(NodeContext context, WorkflowState state) async* {
     yield NodeResult.success(
       output: 'Mock output from $id',
       messages: [],
@@ -30,9 +30,9 @@ class MockNode implements WorkflowNode {
 }
 
 void main() {
-  group('WorkflowGraph', () {
+  group('GraphWorkflow', () {
     test('builds simple graph', () {
-      final graph = WorkflowGraph.builder()
+      final graph = GraphWorkflow.builder()
         .addNode('node1', MockNode('node1'))
         .addNode('node2', MockNode('node2'))
         .addEdge('node1', 'node2')
@@ -45,7 +45,7 @@ void main() {
     
     test('validates against cycles', () {
       expect(
-        () => WorkflowGraph.builder()
+        () => GraphWorkflow.builder()
           .addNode('a', MockNode('a'))
           .addNode('b', MockNode('b'))
           .addEdge('a', 'b')

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import '../state/node_context.dart';
-import '../state/graph_state_impl.dart';
+import '../state/workflow_state.dart';
 
 /// Node in the workflow graph
 abstract interface class WorkflowNode {
@@ -17,7 +17,7 @@ abstract interface class WorkflowNode {
   /// Execute this node with the given context
   Stream<NodeResult> execute(
     NodeContext context,
-    GraphState state,
+    WorkflowState state,
   );
   
   /// Validate node configuration

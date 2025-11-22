@@ -2,13 +2,19 @@ import 'dart:collection';
 import '../interfaces/workflow_node.dart';
 import '../interfaces/workflow_edge.dart';
 
-/// Defines a workflow graph with nodes and edges
-class WorkflowGraph {
+/// Base class for all workflows
+abstract class Workflow {
+  /// Validate the workflow structure
+  bool validate();
+}
+
+/// Defines a graph-based workflow with nodes and edges
+class GraphWorkflow implements Workflow {
   final Map<String, WorkflowNode> _nodes = {};
   final Map<String, List<WorkflowEdge>> _edges = {};
   final String? _entryPoint;
   
-  WorkflowGraph._(this._entryPoint);
+  GraphWorkflow._(this._entryPoint);
   
   /// Get all nodes in the graph
   Map<String, WorkflowNode> get nodes => UnmodifiableMapView(_nodes);
@@ -23,7 +29,7 @@ class WorkflowGraph {
   /// Get node by ID
   WorkflowNode? getNode(String id) => _nodes[id];
   
-  /// Validate graph structure
+  @override
   bool validate() {
     // Check all nodes are valid
     for (final node in _nodes.values) {
@@ -69,17 +75,17 @@ class WorkflowGraph {
   }
   
   /// Create a workflow graph builder
-  static WorkflowGraphBuilder builder() => WorkflowGraphBuilder();
+  static GraphWorkflowBuilder builder() => GraphWorkflowBuilder();
 }
 
-/// Builder for creating workflow graphs
-class WorkflowGraphBuilder {
+/// Builder for creating graph workflows
+class GraphWorkflowBuilder {
   final Map<String, WorkflowNode> _nodes = {};
   final Map<String, List<WorkflowEdge>> _edges = {};
   String? _entryPoint;
   
   /// Add a node to the graph
-  WorkflowGraphBuilder addNode(String id, WorkflowNode node) {
+  GraphWorkflowBuilder addNode(String id, WorkflowNode node) {
     if (_nodes.containsKey(id)) {
       throw ArgumentError('Node with id "$id" already exists');
     }
@@ -93,7 +99,7 @@ class WorkflowGraphBuilder {
   }
   
   /// Add an edge between nodes
-  WorkflowGraphBuilder addEdge(
+  GraphWorkflowBuilder addEdge(
     String fromId, 
     String toId, {
     EdgeCondition? condition,
@@ -118,7 +124,7 @@ class WorkflowGraphBuilder {
   }
   
   /// Set explicit entry point
-  WorkflowGraphBuilder setEntryPoint(String nodeId) {
+  GraphWorkflowBuilder setEntryPoint(String nodeId) {
     if (!_nodes.containsKey(nodeId)) {
       throw ArgumentError('Entry point node "$nodeId" does not exist');
     }
@@ -127,12 +133,12 @@ class WorkflowGraphBuilder {
   }
   
   /// Build the workflow graph
-  WorkflowGraph build() {
+  GraphWorkflow build() {
     if (_nodes.isEmpty) {
       throw StateError('Cannot build empty graph');
     }
     
-    final graph = WorkflowGraph._(_entryPoint);
+    final graph = GraphWorkflow._(_entryPoint);
     graph._nodes.addAll(_nodes);
     graph._edges.addAll(_edges);
     

@@ -1,7 +1,7 @@
-import '../state/graph_state_impl.dart';
+import '../state/workflow_state.dart';
 
 /// Condition function for edges
-typedef EdgeCondition = bool Function(GraphState state);
+typedef EdgeCondition = bool Function(WorkflowState state);
 
 /// Edge connecting two nodes in the workflow graph
 class WorkflowEdge {

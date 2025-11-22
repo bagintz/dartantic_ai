@@ -1,39 +1,38 @@
 import 'dart:async';
 import 'package:logging/logging.dart';
 import 'package:dartantic_interface/dartantic_interface.dart';
-import '../interfaces/graph_orchestrator.dart';
+import '../interfaces/workflow_engine.dart';
 import '../interfaces/workflow_node.dart';
-import '../state/graph_state_impl.dart';
+import '../state/workflow_state.dart';
 import '../state/node_context.dart';
-import 'workflow_graph.dart';
-import 'graph_result.dart';
+import '../workflows/workflow.dart';
+import '../results/workflow_result.dart';
 
-/// Default implementation of graph orchestrator
-class DefaultGraphOrchestrator implements GraphOrchestrator {
-  static final Logger _logger = Logger('dartantic.orchestrator.graph');
+/// Graph-based workflow execution engine
+class GraphEngine implements WorkflowEngine {
+  static final Logger _logger = Logger('dartantic.workflows.graph');
   
   @override
-  String get orchestratorHint => 'default-graph';
+  String get engineType => 'graph';
   
   @override
-  void initialize(GraphState state) {
-    _logger.info('Initializing graph orchestrator');
-    state.setSharedData('orchestrator', orchestratorHint);
+  void initialize(WorkflowState state) {
+    _logger.info('Initializing graph engine');
+    state.setSharedData('engine', engineType);
     state.setSharedData('start_time', DateTime.now());
   }
   
   @override
-  Stream<GraphIterationResult> executeGraph(
-    WorkflowGraph graph,
-    GraphState state,
-    Map<String, dynamic> input,
+  Stream<WorkflowResult> execute(
+    Workflow workflow,
+    WorkflowState state,
   ) async* {
-    _logger.info('Starting graph execution with ${graph.nodes.length} nodes');
-    
-    // Set input data in shared state
-    for (final entry in input.entries) {
-      state.setSharedData('input_${entry.key}', entry.value);
+    if (workflow is! GraphWorkflow) {
+      throw ArgumentError('GraphEngine requires a GraphWorkflow');
     }
+    
+    final graph = workflow;
+    _logger.info('Starting graph execution with ${graph.nodes.length} nodes');
     
     // Get execution order (topological sort)
     final executionOrder = _getExecutionOrder(graph);
@@ -51,7 +50,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
     }
     
     // Final result
-    yield GraphIterationResult(
+    yield WorkflowResult(
       output: _buildFinalOutput(state),
       messages: [],
       shouldContinue: false,
@@ -63,7 +62,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
   }
   
   @override
-  void finalize(GraphState state) {
+  void finalize(WorkflowState state) {
     final endTime = DateTime.now();
     final startTime = state.getSharedData<DateTime>('start_time')!;
     final duration = endTime.difference(startTime);
@@ -78,7 +77,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
   }
   
   /// Get topological execution order
-  List<String> _getExecutionOrder(WorkflowGraph graph) {
+  List<String> _getExecutionOrder(GraphWorkflow graph) {
     final inDegree = <String, int>{};
     for (final node in graph.nodes.keys) {
       inDegree[node] = 0;
@@ -115,7 +114,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
   }
   
   /// Wait for node dependencies to complete
-  Future<void> _waitForDependencies(WorkflowNode node, GraphState state) async {
+  Future<void> _waitForDependencies(WorkflowNode node, WorkflowState state) async {
     for (final depId in node.dependencies) {
       while (!state.hasNodeExecuted(depId) && !state.hasNodeFailed(depId)) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -128,10 +127,10 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
   }
   
   /// Execute a single node
-  Stream<GraphIterationResult> _executeNode(
+  Stream<WorkflowResult> _executeNode(
     WorkflowNode node,
-    WorkflowGraph graph,
-    GraphState state,
+    GraphWorkflow graph,
+    WorkflowState state,
   ) async* {
     _logger.fine('Executing node: ${node.id} (${node.type})');
     
@@ -160,7 +159,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
           _logger.info('Node ${node.id} completed successfully in ${duration.inMilliseconds}ms');
           
           // Yield result
-          yield GraphIterationResult(
+          yield WorkflowResult(
             output: result.output,
             messages: result.messages,
             shouldContinue: true,
@@ -180,7 +179,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
           
           _logger.warning('Node ${node.id} failed: ${result.error}');
           
-          yield GraphIterationResult(
+          yield WorkflowResult(
             output: '',
             messages: [],
             shouldContinue: false,
@@ -204,7 +203,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
     }
   }
   
-  String _buildFinalOutput(GraphState state) {
+  String _buildFinalOutput(WorkflowState state) {
     final buffer = StringBuffer('Graph execution completed.\n\n');
     
     for (final execution in state.executionHistory) {
@@ -216,7 +215,7 @@ class DefaultGraphOrchestrator implements GraphOrchestrator {
     return buffer.toString();
   }
   
-  Map<String, dynamic> _buildFinalMetadata(GraphState state) {
+  Map<String, dynamic> _buildFinalMetadata(WorkflowState state) {
     return {
       'total_nodes': state.executionHistory.length,
       'successful_nodes': state.executionHistory.where((e) => e.success).length,

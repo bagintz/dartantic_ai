@@ -1,5 +1,5 @@
-name: dartantic_orchestrator
-description: Graph-based workflow orchestration for multi-agent AI systems
+name: dartantic_workflows
+description: Multi-agent workflow execution engine for the Dartantic ecosystem
 version: 0.1.0
 repository: https://github.com/csells/dartantic_ai
 publish_to: none

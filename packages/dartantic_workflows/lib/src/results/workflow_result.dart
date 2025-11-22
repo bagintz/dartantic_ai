@@ -1,7 +1,7 @@
 import 'package:dartantic_interface/dartantic_interface.dart';
 
-/// Result from graph execution iteration
-class GraphIterationResult {
+/// Result from workflow execution iteration
+class WorkflowResult {
   /// Text output to stream to user
   final String output;
   
@@ -23,7 +23,7 @@ class GraphIterationResult {
   /// Unique identifier
   final String id;
   
-  const GraphIterationResult({
+  const WorkflowResult({
     required this.output,
     required this.messages,
     required this.shouldContinue,
