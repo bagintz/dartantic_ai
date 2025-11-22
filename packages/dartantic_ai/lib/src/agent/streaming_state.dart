@@ -168,4 +168,7 @@ class StreamingState {
   /// Validates that a tool result ID matches a registered tool call
   bool validateToolResultId(String id) =>
       toolIdCoordinator.validateToolResultId(id);
+
+  /// General purpose metadata storage for orchestrators
+  final Map<String, dynamic> metadata = {};
 }
