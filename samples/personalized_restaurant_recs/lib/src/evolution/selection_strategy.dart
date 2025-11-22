@@ -135,9 +135,7 @@ class TournamentSelection implements SelectionStrategy {
 
 /// Diversity-preserving selection - ensures variety in the population
 class DiversitySelection implements SelectionStrategy {
-  DiversitySelection({int? seed}) : _random = Random(seed);
-
-  final Random _random;
+  DiversitySelection();
 
   @override
   List<RestaurantAnalysisSOP> select({

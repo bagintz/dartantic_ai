@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'src/config/restaurant_analysis_sop.dart';
 import 'src/data/synthetic_data.dart';
 import 'src/evaluation/evaluation_result.dart';
 import 'src/evaluation/restaurant_evaluator.dart';
@@ -47,7 +46,7 @@ class _HomePageState extends State<HomePage> {
   bool _isRunning = false;
   int _currentGeneration = 0;
   String _status = 'Ready to evolve';
-  List<EvolutionLog> _evolutionHistory = [];
+  final List<EvolutionLog> _evolutionHistory = [];
 
   @override
   void initState() {
@@ -81,7 +80,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       // Initialize agent (would need API key in real usage)
-      final agent = Agent(model: 'openai:gpt-4o-mini');
+      final agent = Agent('openai:gpt-4o-mini');
 
       // Select test restaurant and persona
       final restaurant = _restaurants.first;

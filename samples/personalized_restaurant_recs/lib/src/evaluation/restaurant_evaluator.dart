@@ -67,8 +67,8 @@ Rate the accuracy from 0.0 to 1.0 based on:
 
 Respond with ONLY a number between 0.0 and 1.0''';
 
-    final response = await agent.chat(prompt);
-    return _parseScore(response);
+    final result = await agent.send(prompt);
+    return _parseScore(result.output);
   }
 
   /// Completeness: Does it cover all important aspects?
@@ -87,8 +87,8 @@ Rate the completeness from 0.0 to 1.0 based on:
 
 Respond with ONLY a number between 0.0 and 1.0''';
 
-    final response = await agent.chat(prompt);
-    return _parseScore(response);
+    final result = await agent.send(prompt);
+    return _parseScore(result.output);
   }
 
   /// Helpfulness: Does it aid decision-making?
@@ -113,8 +113,8 @@ Rate the helpfulness from 0.0 to 1.0 based on:
 
 Respond with ONLY a number between 0.0 and 1.0''';
 
-    final response = await agent.chat(prompt);
-    return _parseScore(response);
+    final result = await agent.send(prompt);
+    return _parseScore(result.output);
   }
 
   /// Conciseness: Information density (programmatic)

@@ -131,7 +131,8 @@ Available Reviews: ${reviews.length}
 
 Create a brief analysis plan (2-3 sentences).''';
 
-    return agent.chat(prompt);
+    final result = await agent.send(prompt);
+    return result.output;
   }
 
   /// Run data analyst agent
@@ -158,7 +159,8 @@ Extract key statistics and patterns:
 
 Provide a concise data-driven analysis (3-4 sentences).''';
 
-    return agent.chat(prompt);
+    final result = await agent.send(prompt);
+    return result.output;
   }
 
   /// Run service analyst agent
@@ -183,7 +185,8 @@ Analyze service aspects:
 
 Provide a concise service analysis (2-3 sentences).''';
 
-    return agent.chat(prompt);
+    final result = await agent.send(prompt);
+    return result.output;
   }
 
   /// Run sentiment analyst agent
@@ -202,7 +205,8 @@ Provide a brief sentiment summary (2-3 sentences) covering:
 - Emotional tone
 - Customer satisfaction level''';
 
-    return agent.chat(prompt);
+    final result = await agent.send(prompt);
+    return result.output;
   }
 
   /// Synthesize all analyses into final recommendation
@@ -231,7 +235,8 @@ $personalizationPrompt
 
 Create a personalized recommendation that helps the user decide whether to visit this restaurant.''';
 
-    return agent.chat(prompt);
+    final result = await agent.send(prompt);
+    return result.output;
   }
 
   /// Build personalization prompt based on SOP level
