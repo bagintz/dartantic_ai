@@ -1,0 +1,23 @@
+name: dartantic_sqlite
+description: SQLite store implementation for dartantic data stores
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dartantic_interface:
+    path: ../dartantic_interface
+  dartantic_ai:
+    path: ../dartantic_ai
+  sqlite3: ^2.4.0
+  path: ^1.9.0
+  logging: ^1.3.0
+
+dev_dependencies:
+  test: ^1.24.0
+
+dependency_overrides:
+  dartantic_interface:
+    path: ../dartantic_interface

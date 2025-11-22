@@ -1,0 +1,23 @@
+name: dartantic_objectbox
+description: ObjectBox store implementation for dartantic vector stores
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dartantic_interface:
+    path: ../dartantic_interface
+  dartantic_ai:
+    path: ../dartantic_ai
+  objectbox: ^2.4.0
+
+dev_dependencies:
+  test: ^1.24.0
+  build_runner: ^2.4.8
+  objectbox_generator: ^2.4.0
+
+dependency_overrides:
+  dartantic_interface:
+    path: ../dartantic_interface

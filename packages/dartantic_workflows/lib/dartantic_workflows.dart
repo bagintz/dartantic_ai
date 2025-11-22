@@ -26,4 +26,6 @@ export 'src/results/workflow_result.dart';
 // Nodes
 export 'src/nodes/agent_node.dart';
 export 'src/nodes/conditional_node.dart';
+export 'src/nodes/database_node.dart';
 export 'src/nodes/parallel_node.dart';
+export 'src/nodes/vector_search_node.dart';
