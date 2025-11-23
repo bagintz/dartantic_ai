@@ -149,27 +149,45 @@ flutter run -d linux    # Linux desktop
 flutter run -d windows  # Windows desktop
 ```
 
-## 📊 Using the App
+## 📊 Using the App - The Stakeholder Journey
 
-1. **Click "Run Evolution Cycle"** to start the self-improvement loop
-2. The system will:
-   - Generate synthetic restaurant data (or load Yelp dataset)
-   - Run baseline analysis with default SOP
-   - Evaluate across 6 dimensions
-   - Mutate and evolve better configurations
-   - Display results in evolution history
+The app guides you through a complete journey from problem understanding to personalized recommendations:
 
-3. **Observe improvements:**
-   - Overall score trending upward
-   - Pareto frontier expanding (multiple good solutions)
-   - Specific dimensions improving based on mutations
+### Step 1: Stakeholder Conversation
+- **Learn why this tool exists** - understand the problem it solves
+- **Enter your zip code** - specify your location
+- **Select your diner profile** - foodie, budget-conscious, family-friendly, or quick lunch seeker
 
-4. **View detailed transparency:**
-   - **Tap any generation** to expand and see detailed information
-   - **Mutations Applied:** See exactly what changed from the baseline
-   - **SOP Configuration:** View the "genome" parameters for that generation
-   - **Evaluation Scores:** All 6 dimensions with precise scores
-   - **Generated Analysis:** The actual restaurant recommendation text produced by the multi-agent workflow
+### Step 2: Process Visualization
+- **See the workflow** - interactive Mermaid diagram showing the multi-agent process
+- **Understand self-improvement** - how the system evolves better configurations
+- **Set expectations** - know what to watch for in the next step
+
+### Step 3: Evolution Journey
+- **Watch real-time evolution** - see generations improve with live progress charts (using fl_chart)
+- **View detailed transparency**:
+  - Tap any generation to see mutations applied
+  - View SOP configuration ("genome")
+  - See all 6 evaluation dimensions
+  - Read the actual AI-generated analysis
+- **Process More** - click to run additional evolution cycles
+- **Finish** - move to final report when satisfied
+
+### Step 4: Final Report
+- **Top 3 personalized recommendations** ranked by match score
+- **Evidence-based analysis** for each restaurant
+- **Restart** - search again with different criteria
+
+## 🔧 Data Sources
+
+The app automatically uses the best available data source:
+
+1. **Real Yelp Data** (preferred): If `/tmp/yelp_dataset/` contains Yelp Academic Dataset files
+2. **Synthetic Data** (fallback): Generates realistic restaurant and review data
+
+To use real Yelp data, place these files in `/tmp/yelp_dataset/`:
+- `yelp_academic_dataset_business.json`
+- `yelp_academic_dataset_review.json`
 
 ## 🗂️ Project Structure
 

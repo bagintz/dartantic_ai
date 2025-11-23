@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'src/config/restaurant_analysis_sop.dart';
-import 'src/data/synthetic_data.dart';
+import 'src/data/data_provider.dart';
 import 'src/evaluation/evaluation_result.dart';
 import 'src/evaluation/restaurant_evaluator.dart';
 import 'src/evolution/evolution_engine.dart';
@@ -11,6 +11,10 @@ import 'src/models/restaurant.dart';
 import 'src/models/review.dart';
 import 'src/models/user_persona.dart';
 import 'src/workflows/restaurant_analysis_workflow.dart';
+import 'src/ui/stakeholder_intro_screen.dart';
+import 'src/ui/process_diagram_screen.dart';
+import 'src/ui/evolution_journey_screen.dart';
+import 'src/ui/stakeholder_report_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,7 +28,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Self-Improving Restaurant Recommendations',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
       ),
       home: const HomePage(),
@@ -40,35 +44,105 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _dataGenerator = SyntheticDataGenerator(seed: 42);
-  late final List<Restaurant> _restaurants;
-  late final Map<String, List<Review>> _reviewsByRestaurant;
+  int _currentStep = 0;
+  final _dataProvider = DataProvider(seed: 42);
 
+  // User inputs
+  String? _zipCode;
+  UserPersona? _selectedPersona;
+
+  // Data
+  List<Restaurant> _restaurants = [];
+  Map<String, List<Review>> _reviewsByRestaurant = {};
+
+  // Evolution state
+  final List<EvolutionJourneyLog> _evolutionHistory = [];
   bool _isRunning = false;
-  int _currentGeneration = 0;
-  String _status = 'Ready to evolve';
-  final List<EvolutionLog> _evolutionHistory = [];
+  String _status = 'Ready';
+  Map<String, RestaurantAnalysisSOP> _currentPopulation = {};
+
+  // Final results
+  List<RestaurantRecommendation> _recommendations = [];
 
   @override
-  void initState() {
-    super.initState();
-    _initializeData();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('Intelligent Restaurant Recommendations'),
+      ),
+      body: _buildCurrentStep(),
+    );
   }
 
-  void _initializeData() {
-    final dataset = _dataGenerator.generateDataset(
-      restaurantCount: 5,
-      reviewsPerRestaurant: 15,
-    );
-
-    _restaurants = dataset['restaurants'] as List<Restaurant>;
-    final allReviews = dataset['reviews'] as List<Review>;
-
-    _reviewsByRestaurant = {};
-    for (final review in allReviews) {
-      _reviewsByRestaurant.putIfAbsent(review.businessId, () => []);
-      _reviewsByRestaurant[review.businessId]!.add(review);
+  Widget _buildCurrentStep() {
+    switch (_currentStep) {
+      case 0:
+        return StakeholderIntroScreen(
+          personas: _dataProvider.getSamplePersonas(),
+          onContinue: _handleIntroComplete,
+        );
+      case 1:
+        return ProcessDiagramScreen(
+          onContinue: _handleDiagramComplete,
+        );
+      case 2:
+        return EvolutionJourneyScreen(
+          evolutionHistory: _evolutionHistory,
+          isRunning: _isRunning,
+          status: _status,
+          onProcessMore: _runEvolutionCycle,
+          onFinish: _handleEvolutionComplete,
+        );
+      case 3:
+        return StakeholderReportScreen(
+          recommendations: _recommendations,
+          persona: _selectedPersona!,
+          zipCode: _zipCode!,
+          generationsProcessed: _evolutionHistory.length,
+          onRestart: _handleRestart,
+        );
+      default:
+        return const Center(child: Text('Unknown step'));
     }
+  }
+
+  void _handleIntroComplete(String zipCode, UserPersona persona) {
+    setState(() {
+      _zipCode = zipCode;
+      _selectedPersona = persona;
+      _currentStep = 1;
+    });
+  }
+
+  void _handleDiagramComplete() {
+    setState(() {
+      _currentStep = 2;
+    });
+    // Start first evolution cycle automatically
+    _runEvolutionCycle();
+  }
+
+  void _handleEvolutionComplete() {
+    // Create final recommendations from evolution results
+    _createFinalRecommendations();
+    setState(() {
+      _currentStep = 3;
+    });
+  }
+
+  void _handleRestart() {
+    setState(() {
+      _currentStep = 0;
+      _zipCode = null;
+      _selectedPersona = null;
+      _restaurants = [];
+      _reviewsByRestaurant = {};
+      _evolutionHistory.clear();
+      _currentPopulation = {};
+      _recommendations = [];
+      _status = 'Ready';
+    });
   }
 
   Future<void> _runEvolutionCycle() async {
@@ -76,35 +150,77 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _isRunning = true;
-      _status = 'Initializing evolution...';
+      _status = 'Loading data...';
     });
 
     try {
-      // Initialize agent
-      // Options:
-      // - ollama:deepseek-v3.1:671b-cloud (cloud via Ollama, fast & powerful)
-      // - ollama:qwen2.5:7b-instruct (local, free)
-      // - openai:gpt-4o-mini (direct cloud)
+      // Load data on first run
+      if (_restaurants.isEmpty) {
+        await _loadData();
+      }
+
+      // Pick a random restaurant for this cycle
+      final restaurant = _restaurants.first;
+      final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
+
+      setState(() {
+        _status = 'Running analysis (Generation ${_evolutionHistory.length})...';
+      });
+
+      // Initialize or use current population
+      if (_currentPopulation.isEmpty) {
+        final modelString = const String.fromEnvironment(
+          'MODEL',
+          defaultValue: 'ollama:deepseek-v3.1:671b-cloud',
+        );
+
+        final agent = Agent(modelString);
+        final workflow = RestaurantAnalysisWorkflow(agent: agent);
+        final evaluator = RestaurantEvaluator(agent: agent);
+
+        final mutationStrategy = CompositeMutation(
+          strategies: [
+            ParameterTweakMutation(),
+            StructuralMutation(),
+            PromptEnhancementMutation(),
+          ],
+        );
+
+        final engine = EvolutionEngine(
+          evaluator: evaluator,
+          mutationStrategy: mutationStrategy,
+          selectionStrategy: ParetoSelection(),
+          populationSize: 6,
+          eliteCount: 2,
+        );
+
+        _currentPopulation = engine.initializePopulation();
+      }
+
+      // Run workflow with best SOP from current population
       final modelString = const String.fromEnvironment(
         'MODEL',
         defaultValue: 'ollama:deepseek-v3.1:671b-cloud',
       );
 
-      setState(() => _status = 'Initializing agent ($modelString)...');
       final agent = Agent(modelString);
-
-      // Select test restaurant and persona
-      final restaurant = _restaurants.first;
-      final persona = UserPersona.foodie;
-      final reviews = _reviewsByRestaurant[restaurant.businessId]!;
-
-      setState(() => _status = 'Running baseline analysis...');
-
-      // Create workflow and evaluator
       final workflow = RestaurantAnalysisWorkflow(agent: agent);
       final evaluator = RestaurantEvaluator(agent: agent);
 
-      // Create evolution engine
+      final bestSop = _currentPopulation.values.first;
+
+      final result = await workflow.analyze(
+        sop: bestSop,
+        restaurant: restaurant,
+        allReviews: reviews,
+        persona: _selectedPersona!,
+      );
+
+      // Evolve
+      setState(() {
+        _status = 'Evaluating and evolving...';
+      });
+
       final mutationStrategy = CompositeMutation(
         strategies: [
           ParameterTweakMutation(),
@@ -121,54 +237,39 @@ class _HomePageState extends State<HomePage> {
         eliteCount: 2,
       );
 
-      // Initialize population
-      var population = engine.initializePopulation();
-
-      setState(() {
-        _status = 'Running generation ${_currentGeneration + 1}...';
-      });
-
-      // Run workflow with baseline SOP
-      final baselineSOP = population.values.first;
-      final result = await workflow.analyze(
-        sop: baselineSOP,
-        restaurant: restaurant,
-        allReviews: reviews,
-        persona: persona,
-      );
-
-      // Run one evolution cycle
       final cycleResult = await engine.evolve(
-        currentPopulation: population,
+        currentPopulation: _currentPopulation,
         analysisText: result.analysis,
         sourceReviews: reviews,
-        persona: persona,
+        persona: _selectedPersona!,
       );
 
-      // Get the best SOP from the cycle result
-      final bestSOP = cycleResult.population[cycleResult.bestOverall]!;
+      // Update population for next generation
+      _currentPopulation = cycleResult.population;
 
-      // Generate mutation description by comparing with baseline
+      // Get the best SOP from the cycle result
+      final newBestSop = cycleResult.population[cycleResult.bestOverall]!;
+
+      // Generate mutation description
       String? mutationDesc;
-      if (_currentGeneration > 0) {
-        final baseline = population.values.first;
-        mutationDesc = _describeMutation(baseline, bestSOP);
+      if (_evolutionHistory.isNotEmpty) {
+        final previousSop = _evolutionHistory.last.sop;
+        mutationDesc = _describeMutation(previousSop, newBestSop);
       }
 
       setState(() {
-        _currentGeneration++;
         _evolutionHistory.add(
-          EvolutionLog(
-            generation: _currentGeneration,
+          EvolutionJourneyLog(
+            generation: _evolutionHistory.length,
             bestScore: cycleResult.bestResult.overallScore,
             paretoSize: cycleResult.paretoFrontier.length,
             bestResult: cycleResult.bestResult,
             analysisText: result.analysis,
-            sop: bestSOP,
+            sop: newBestSop,
             mutationDescription: mutationDesc,
           ),
         );
-        _status = 'Generation $_currentGeneration complete!';
+        _status = 'Generation ${_evolutionHistory.length} complete!';
         _isRunning = false;
       });
     } catch (e) {
@@ -177,6 +278,38 @@ class _HomePageState extends State<HomePage> {
         _isRunning = false;
       });
     }
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _status = 'Loading restaurant data...';
+    });
+
+    final dataSource = await _dataProvider.initialize();
+
+    setState(() {
+      _status = 'Data source: ${dataSource.name}. Loading restaurants...';
+    });
+
+    _restaurants = await _dataProvider.loadRestaurantsByZipCode(_zipCode!);
+
+    if (_restaurants.isEmpty) {
+      throw Exception('No restaurants found in zip code $_zipCode');
+    }
+
+    // Take top 10 by rating
+    _restaurants.sort((a, b) => b.stars.compareTo(a.stars));
+    _restaurants = _restaurants.take(10).toList();
+
+    setState(() {
+      _status = 'Loading reviews for ${_restaurants.length} restaurants...';
+    });
+
+    _reviewsByRestaurant = await _dataProvider.loadReviews(_restaurants);
+
+    setState(() {
+      _status = 'Data loaded. Starting evolution...';
+    });
   }
 
   String _describeMutation(RestaurantAnalysisSOP baseline, RestaurantAnalysisSOP mutated) {
@@ -213,197 +346,24 @@ class _HomePageState extends State<HomePage> {
     return changes.join('\n');
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Self-Improving Restaurant RAG'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Evolution Status',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Generation: $_currentGeneration'),
-                    Text('Status: $_status'),
-                    Text('Restaurants: ${_restaurants.length}'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (_evolutionHistory.isNotEmpty) ...[
-              Text(
-                'Evolution History',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Card(
-                  child: ListView.builder(
-                    itemCount: _evolutionHistory.length,
-                    itemBuilder: (context, index) {
-                      final log = _evolutionHistory[index];
-                      return ExpansionTile(
-                        leading: CircleAvatar(
-                          backgroundColor: log.generation == 0
-                            ? Colors.grey
-                            : Theme.of(context).colorScheme.primary,
-                          child: Text('${log.generation}'),
-                        ),
-                        title: Text(
-                          'Generation ${log.generation} - Overall: ${log.bestScore.toStringAsFixed(3)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          'Pareto Frontier: ${log.paretoSize} SOPs | '
-                          'Acc: ${log.bestResult.accuracy.toStringAsFixed(2)}, '
-                          'Help: ${log.bestResult.helpfulness.toStringAsFixed(2)}, '
-                          'Pers: ${log.bestResult.personalization.toStringAsFixed(2)}',
-                        ),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Mutation description
-                                if (log.mutationDescription != null) ...[
-                                  Text(
-                                    'Mutations Applied:',
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    log.mutationDescription!,
-                                    style: Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
+  void _createFinalRecommendations() {
+    // Use the best evolved SOP to analyze all restaurants
+    // For now, create mock recommendations from top 3 restaurants
+    _recommendations = _restaurants.take(3).toList().asMap().entries.map((entry) {
+      final index = entry.key;
+      final restaurant = entry.value;
 
-                                // SOP Configuration
-                                Text(
-                                  'SOP Configuration:',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Review Count: ${log.sop.reviewRetrieverK}\n'
-                                  'Data Analyst: ${log.sop.useDataAnalyst ? "Enabled" : "Disabled"}\n'
-                                  'Service Analyst: ${log.sop.useServiceAnalyst ? "Enabled" : "Disabled"}\n'
-                                  'Personalization Level: ${log.sop.personalizationLevel}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 16),
+      // Get the last analysis if available, or create generic one
+      final analysis = _evolutionHistory.isNotEmpty
+          ? _evolutionHistory.last.analysisText
+          : 'Great restaurant with excellent reviews.';
 
-                                // Evaluation Scores
-                                Text(
-                                  'Detailed Evaluation Scores:',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Accuracy: ${log.bestResult.accuracy.toStringAsFixed(3)}\n'
-                                  'Completeness: ${log.bestResult.completeness.toStringAsFixed(3)}\n'
-                                  'Helpfulness: ${log.bestResult.helpfulness.toStringAsFixed(3)}\n'
-                                  'Conciseness: ${log.bestResult.conciseness.toStringAsFixed(3)}\n'
-                                  'Data-Grounded: ${log.bestResult.dataGrounded.toStringAsFixed(3)}\n'
-                                  'Personalization: ${log.bestResult.personalization.toStringAsFixed(3)}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Generated Analysis
-                                Text(
-                                  'Generated Analysis:',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    log.analysisText,
-                                    style: Theme.of(context).textTheme.bodyMedium,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ] else
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    'Click "Run Evolution Cycle" to start\n\n'
-                    'This will demonstrate self-improvement:\n'
-                    '• Generate baseline SOP\n'
-                    '• Run multi-agent analysis\n'
-                    '• Evaluate across 5 dimensions\n'
-                    '• Evolve better configurations\n'
-                    '• Track Pareto frontier\n\n'
-                    'Tap each generation to see detailed analysis,\n'
-                    'SOP configuration, and mutation information.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isRunning ? null : _runEvolutionCycle,
-        label: Text(_isRunning ? 'Running...' : 'Run Evolution Cycle'),
-        icon: Icon(_isRunning ? Icons.hourglass_empty : Icons.play_arrow),
-      ),
-    );
+      return RestaurantRecommendation(
+        restaurant: restaurant,
+        analysis: analysis,
+        score: 0.9 - (index * 0.1), // Simple mock scoring
+        rank: index + 1,
+      );
+    }).toList();
   }
-}
-
-class EvolutionLog {
-  EvolutionLog({
-    required this.generation,
-    required this.bestScore,
-    required this.paretoSize,
-    required this.bestResult,
-    required this.analysisText,
-    required this.sop,
-    this.mutationDescription,
-  });
-
-  final int generation;
-  final double bestScore;
-  final int paretoSize;
-  final EvaluationResult bestResult;
-  final String analysisText;
-  final RestaurantAnalysisSOP sop;
-  final String? mutationDescription;
 }
