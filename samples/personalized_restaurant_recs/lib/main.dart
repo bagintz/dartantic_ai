@@ -884,8 +884,8 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 16),
 
-        // Phase indicator
-        if (_currentPhase.isNotEmpty)
+        // Phase indicator (only show when actively running or at final completion)
+        if (_currentPhase.isNotEmpty && (_isRunning || _currentPhase.contains('COMPLETE')))
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
@@ -930,7 +930,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-        if (_currentPhase.isNotEmpty) const SizedBox(height: 8),
+        if (_currentPhase.isNotEmpty && (_isRunning || _currentPhase.contains('COMPLETE'))) const SizedBox(height: 8),
 
         // Detail status
         Text(
@@ -984,8 +984,8 @@ class _HomePageState extends State<HomePage> {
                 ),
         ),
 
-        // Process More button at the bottom
-        if (!_isRunning && _evolutionHistory.isNotEmpty) ...[
+        // Process More button at the bottom (only show if not at max generations)
+        if (!_isRunning && _evolutionHistory.isNotEmpty && _evolutionHistory.length < _maxGenerations.toInt()) ...[
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -1056,17 +1056,51 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildEvolutionTile(EvolutionJourneyLog log) {
     final displayGeneration = log.generation + 1; // Display as 1-indexed
-    return ExpansionTile(
-      leading: CircleAvatar(
-        backgroundColor: log.generation == 0
-            ? Colors.grey
-            : (Theme.of(context).colorScheme.primary),
-        child: Text('$displayGeneration'),
-      ),
-      title: Text(
-        'Generation $displayGeneration - Overall: ${log.bestScore.toStringAsFixed(3)}',
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
+    final maxGen = _maxGenerations.toInt();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ExpansionTile(
+        leading: CircleAvatar(
+          backgroundColor: log.generation == 0
+              ? Colors.grey
+              : (Theme.of(context).colorScheme.primary),
+          child: Text('$displayGeneration'),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Phase badge for this generation
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade100,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.green, width: 1.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
+                  const SizedBox(width: 6),
+                  Text(
+                    'EVOLUTION - Generation $displayGeneration of $maxGen',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              'Overall Score: ${log.bestScore.toStringAsFixed(3)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1188,6 +1222,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
+      ),
     );
   }
 
