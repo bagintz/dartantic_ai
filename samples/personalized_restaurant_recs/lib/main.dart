@@ -252,7 +252,10 @@ class _HomePageState extends State<HomePage> {
       _currentPopulation = cycleResult.population;
 
       // Get the best SOP from the cycle result
-      final newBestSop = cycleResult.population[cycleResult.bestOverall]!;
+      final newBestSop = cycleResult.population[cycleResult.bestOverall];
+      if (newBestSop == null) {
+        throw Exception('Best SOP not found in population for key: ${cycleResult.bestOverall}');
+      }
 
       // Generate mutation description
       String? mutationDesc;
@@ -264,7 +267,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _evolutionHistory.add(
           EvolutionJourneyLog(
-            generation: _evolutionHistory.length,
+            generation: _evolutionHistory.length + 1, // Start at 1, not 0
             bestScore: cycleResult.bestResult.overallScore,
             paretoSize: cycleResult.paretoFrontier.length,
             bestResult: cycleResult.bestResult,
@@ -560,20 +563,6 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         }),
-        const SizedBox(height: 32),
-
-        if (!_hasStarted)
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _handleStart,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Find My Perfect Restaurant'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.all(16.0),
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -616,6 +605,71 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+
+        // Advanced configuration (optional)
+        if (!_hasStarted)
+          ExpansionTile(
+            title: const Text('⚙️ Advanced Configuration (Optional)'),
+            subtitle: const Text('Customize evolution parameters'),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Population Size',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Slider(
+                      value: 6,
+                      min: 3,
+                      max: 12,
+                      divisions: 9,
+                      label: '6 SOPs per generation',
+                      onChanged: null, // TODO: Wire up configuration
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Number of Generations',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Slider(
+                      value: 3,
+                      min: 1,
+                      max: 10,
+                      divisions: 9,
+                      label: '3 generations',
+                      onChanged: null, // TODO: Wire up configuration
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Note: More generations = better optimization but takes longer',
+                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 24),
+
+        // Start button at the end of the journey explanation
+        if (!_hasStarted)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _handleStart,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Find My Perfect Restaurant'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.all(16.0),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -752,7 +806,9 @@ class _HomePageState extends State<HomePage> {
   Widget _buildEvolutionTile(EvolutionJourneyLog log) {
     return ExpansionTile(
       leading: CircleAvatar(
-        backgroundColor: log.generation == 0 ? Colors.grey : Theme.of(context).colorScheme.primary,
+        backgroundColor: log.generation == 1
+            ? Colors.grey
+            : (Theme.of(context).colorScheme.primary),
         child: Text('${log.generation}'),
       ),
       title: Text(
@@ -777,7 +833,7 @@ class _HomePageState extends State<HomePage> {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                Text(log.mutationDescription!, style: Theme.of(context).textTheme.bodySmall),
+                Text(log.mutationDescription, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 16),
               ],
               Text(
