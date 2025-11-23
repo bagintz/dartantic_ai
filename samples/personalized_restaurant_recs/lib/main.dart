@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'src/config/restaurant_analysis_sop.dart';
 import 'src/data/data_provider.dart';
 import 'src/evaluation/evaluation_result.dart';
@@ -371,24 +372,57 @@ class _HomePageState extends State<HomePage> {
     return changes.join('\n');
   }
 
-  void _createFinalRecommendations() {
-    // Use top 3 restaurants with the evolved analysis
-    _recommendations = _restaurants.take(3).toList().asMap().entries.map((entry) {
-      final index = entry.key;
-      final restaurant = entry.value;
+  Future<void> _createFinalRecommendations() async {
+    if (_evolutionHistory.isEmpty) {
+      return;
+    }
 
-      // Get the last analysis if available
-      final analysis = _evolutionHistory.isNotEmpty
-          ? _evolutionHistory.last.analysisText
-          : 'Great restaurant with excellent reviews.';
+    setState(() {
+      _status = 'Generating final recommendations...';
+    });
 
-      return RestaurantRecommendation(
+    final modelString = const String.fromEnvironment(
+      'MODEL',
+      defaultValue: 'ollama:deepseek-v3.1:671b-cloud',
+    );
+
+    final agent = Agent(modelString);
+    final workflow = RestaurantAnalysisWorkflow(agent: agent);
+    final bestSop = _evolutionHistory.last.sop;
+
+    // Generate analysis for top 3 restaurants
+    final recommendations = <RestaurantRecommendation>[];
+    final topRestaurants = _restaurants.take(3).toList();
+
+    for (var i = 0; i < topRestaurants.length; i++) {
+      final restaurant = topRestaurants[i];
+      final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
+
+      setState(() {
+        _status = 'Analyzing ${restaurant.name} (${i + 1}/3)...';
+      });
+
+      final result = await workflow.analyze(
+        sop: bestSop,
         restaurant: restaurant,
-        analysis: analysis,
-        score: 0.9 - (index * 0.1),
-        rank: index + 1,
+        allReviews: reviews,
+        persona: _selectedPersona!,
       );
-    }).toList();
+
+      recommendations.add(
+        RestaurantRecommendation(
+          restaurant: restaurant,
+          analysis: result.analysis,
+          score: 0.9 - (i * 0.1),
+          rank: i + 1,
+        ),
+      );
+    }
+
+    setState(() {
+      _recommendations = recommendations;
+      _status = 'Recommendations complete!';
+    });
   }
 
   @override
@@ -901,7 +935,10 @@ class _HomePageState extends State<HomePage> {
                   color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(log.analysisText, style: Theme.of(context).textTheme.bodyMedium),
+                child: MarkdownBody(
+                  data: log.analysisText,
+                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+                ),
               ),
             ],
           ),
@@ -1088,7 +1125,10 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(rec.analysis),
+                  MarkdownBody(
+                    data: rec.analysis,
+                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)),
+                  ),
                 ],
               ),
             ),
