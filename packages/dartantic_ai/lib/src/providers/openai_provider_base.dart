@@ -81,4 +81,7 @@ abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
       throw ArgumentError('$apiKeyName is required for $displayName provider');
     }
   }
+
+  @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
 }

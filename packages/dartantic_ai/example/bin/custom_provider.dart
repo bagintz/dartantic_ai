@@ -100,6 +100,9 @@ class EchoProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
   ]);
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+
+  @override
   ChatModel<ChatModelOptions> createChatModel({
     String? name,
     List<Tool<Object>>? tools,

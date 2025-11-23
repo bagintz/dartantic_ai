@@ -748,4 +748,7 @@ class _EchoProvider extends Provider {
       kinds: const {ModelKind.chat},
     );
   }
+
+  @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
 }

@@ -39,6 +39,9 @@ class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
 
   @override
   Stream<ModelInfo> listModels() async* {}
+
+  @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
 }
 
 class DummyChatModel extends ChatModel<ChatModelOptions> {
@@ -126,6 +129,9 @@ class WrapperProvider
 
   @override
   Stream<ModelInfo> listModels() async* {}
+
+  @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
 }
 
 class DummyModel extends ChatModel<ChatModelOptions> {

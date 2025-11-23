@@ -88,6 +88,9 @@ class CohereProvider extends OpenAIProvider {
   }
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final url = Uri.parse('https://docs.cohere.com/docs/models');
     _logger.info('Fetching models from Cohere docs: $url');

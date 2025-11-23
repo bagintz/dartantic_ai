@@ -93,6 +93,9 @@ class AnthropicProvider
   }) => throw Exception('Anthropic does not support embeddings models');
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'models');

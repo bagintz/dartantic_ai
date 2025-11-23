@@ -1,4 +1,5 @@
 import '../provider/provider.dart';
+import 'model_caps.dart';
 import 'model_kind.dart';
 
 /// Model metadata for provider model listing.
@@ -11,14 +12,15 @@ class ModelInfo {
   /// [name]: The unique name for the model (required). [kinds]: The set of
   /// kinds of model (required, non-empty). [displayName]: The display name of
   /// the model, if available. [description]: A description of the model, if
-  /// available. [extra]: Any extra metadata returned by the provider (default:
-  /// empty map).
+  /// available. [caps]: The capabilities of this specific model, if known.
+  /// [extra]: Any extra metadata returned by the provider (default: empty map).
   ModelInfo({
     required this.name,
     required this.providerName,
     required this.kinds,
     this.displayName,
     this.description,
+    this.caps,
     this.extra = const {},
   }) : assert(kinds.isNotEmpty, 'kinds must not be empty');
 
@@ -40,6 +42,10 @@ class ModelInfo {
 
   /// A description of the model, if available.
   final String? description;
+
+  /// The capabilities of this specific model, if known.
+  /// Null if the provider cannot determine model-specific capabilities.
+  final List<ModelCaps>? caps;
 
   /// Any extra metadata returned by the provider.
   final Map<String, dynamic> extra;

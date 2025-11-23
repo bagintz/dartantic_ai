@@ -584,6 +584,9 @@ class TestProvider extends Provider<TestChatOptions, TestEmbeddingsOptions> {
   Stream<ModelInfo> listModels() => const Stream.empty();
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+
+  @override
   EmbeddingsModel<TestEmbeddingsOptions> createEmbeddingsModel({
     String? name,
     TestEmbeddingsOptions? options,
