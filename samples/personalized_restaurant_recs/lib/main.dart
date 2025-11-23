@@ -103,6 +103,7 @@ class _HomePageState extends State<HomePage> {
 
   // UI state
   bool _hasStarted = false;
+  DataSource? _currentDataSource;
 
   @override
   void dispose() {
@@ -125,6 +126,7 @@ class _HomePageState extends State<HomePage> {
       _status = 'Ready to start';
       _hasStarted = false;
       _isRunning = false;
+      _currentDataSource = null;
     });
     _scrollController.animateTo(
       0,
@@ -307,6 +309,11 @@ class _HomePageState extends State<HomePage> {
 
     final dataSource = await _dataProvider.initialize();
 
+    // Store data source in state for persistent UI display
+    setState(() {
+      _currentDataSource = dataSource;
+    });
+
     String dataSourceLabel;
     String dataSourceDetail;
     if (dataSource == DataSource.yelp) {
@@ -470,6 +477,27 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: const Text('Intelligent Restaurant Recommendations'),
         actions: [
+          if (_currentDataSource != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+              child: Chip(
+                avatar: Text(
+                  _currentDataSource == DataSource.yelp ? '📊' : '🧪',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                label: Text(
+                  _currentDataSource == DataSource.yelp ? 'Real Yelp Data' : 'Synthetic Demo Data',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: _currentDataSource == DataSource.yelp
+                    ? Colors.blue[100]
+                    : Colors.orange[100],
+                side: BorderSide(
+                  color: _currentDataSource == DataSource.yelp ? Colors.blue : Colors.orange,
+                  width: 1.5,
+                ),
+              ),
+            ),
           if (_hasStarted)
             TextButton.icon(
               onPressed: _startOver,
