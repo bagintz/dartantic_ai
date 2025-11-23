@@ -855,7 +855,7 @@ class _HomePageState extends State<HomePage> {
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                Text(log.mutationDescription, style: Theme.of(context).textTheme.bodySmall),
+                Text(log.mutationDescription!, style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 16),
               ],
               Text(
