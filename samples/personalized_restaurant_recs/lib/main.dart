@@ -76,12 +76,34 @@ class RestaurantRecommendation {
   final int rank;
 }
 
+// City with sample zip code for Yelp Academic Dataset
+class YelpCity {
+  final String name;
+  final String zipCode;
+
+  const YelpCity(this.name, this.zipCode);
+}
+
 class _HomePageState extends State<HomePage> {
   final _dataProvider = DataProvider(seed: 42);
-  final _zipCodeController = TextEditingController();
   final _scrollController = ScrollController();
 
+  // Common cities in Yelp Academic Dataset
+  static const _yelpCities = [
+    YelpCity('Philadelphia, PA', '19107'),
+    YelpCity('Tampa, FL', '33602'),
+    YelpCity('Tucson, AZ', '85701'),
+    YelpCity('Nashville, TN', '37201'),
+    YelpCity('Indianapolis, IN', '46204'),
+    YelpCity('Reno, NV', '89501'),
+    YelpCity('Santa Barbara, CA', '93101'),
+    YelpCity('Boise, ID', '83702'),
+    YelpCity('New Orleans, LA', '70112'),
+    YelpCity('St. Louis, MO', '63101'),
+  ];
+
   // User inputs
+  YelpCity? _selectedCity;
   UserPersona? _selectedPersona;
 
   // Configuration
@@ -107,14 +129,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _zipCodeController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   void _startOver() {
     setState(() {
-      _zipCodeController.clear();
+      _selectedCity = null;
       _selectedPersona = null;
       _populationSize = 6;
       _maxGenerations = 3;
@@ -136,10 +157,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _handleStart() {
-    final zipCode = _zipCodeController.text.trim();
-    if (zipCode.isEmpty) {
+    if (_selectedCity == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a zip code')),
+        const SnackBar(content: Text('Please select a city')),
       );
       return;
     }
@@ -326,11 +346,11 @@ class _HomePageState extends State<HomePage> {
 
     print('[Main] Data source: $dataSourceLabel - $dataSourceDetail');
 
-    final zipCode = _zipCodeController.text.trim();
+    final zipCode = _selectedCity!.zipCode;
     final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
 
     setState(() {
-      _status = '$dataSourceLabel - Loading restaurants in area $zipPrefix**...';
+      _status = '$dataSourceLabel - Loading restaurants in ${_selectedCity!.name}...';
     });
 
     _restaurants = await _dataProvider.loadRestaurantsByZipCode(zipCode);
@@ -585,17 +605,26 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 16),
 
-        TextField(
-          controller: _zipCodeController,
+        DropdownButtonFormField<YelpCity>(
+          value: _selectedCity,
           decoration: const InputDecoration(
-            labelText: 'Zip Code',
-            hintText: 'Enter your zip code (e.g., 43204 searches Columbus area)',
-            helperText: 'Searches all restaurants in the same 3-digit area',
+            labelText: 'City',
+            hintText: 'Select a city from the Yelp Academic Dataset',
+            helperText: 'These cities have real Yelp review data available',
             border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.location_on),
+            prefixIcon: Icon(Icons.location_city),
           ),
-          keyboardType: TextInputType.number,
-          enabled: !_hasStarted,
+          items: _yelpCities.map((city) {
+            return DropdownMenuItem<YelpCity>(
+              value: city,
+              child: Text(city.name),
+            );
+          }).toList(),
+          onChanged: _hasStarted ? null : (YelpCity? newCity) {
+            setState(() {
+              _selectedCity = newCity;
+            });
+          },
         ),
         const SizedBox(height: 24),
 
@@ -1151,11 +1180,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     const Icon(Icons.location_on),
                     const SizedBox(width: 12),
-                    Text(() {
-                      final zipCode = _zipCodeController.text;
-                      final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
-                      return 'Location: Zip Code Area $zipPrefix** (${zipCode})';
-                    }()),
+                    Text('Location: ${_selectedCity?.name ?? "Unknown"}'),
                   ],
                 ),
                 const SizedBox(height: 8),
