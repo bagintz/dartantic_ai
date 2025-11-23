@@ -64,9 +64,11 @@ class DataProvider {
         }
         print('[DataProvider] ✗ No restaurants found in Yelp data for zip $zipCode');
         print('[DataProvider] → Falling back to synthetic data');
+        _dataSource = DataSource.synthetic; // Update data source on fallback
       } catch (e) {
         print('[DataProvider] ✗ Error loading Yelp data: $e');
         print('[DataProvider] → Falling back to synthetic data');
+        _dataSource = DataSource.synthetic; // Update data source on fallback
       }
     }
 
@@ -103,6 +105,7 @@ class DataProvider {
       } catch (e) {
         print('[DataProvider] ✗ Error loading Yelp reviews: $e');
         print('[DataProvider] → Falling back to synthetic reviews');
+        _dataSource = DataSource.synthetic; // Update data source on fallback
       }
     }
 

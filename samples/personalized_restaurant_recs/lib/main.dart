@@ -357,8 +357,13 @@ class _HomePageState extends State<HomePage> {
     final totalReviews = _reviewsByRestaurant.values.fold(0, (sum, list) => sum + list.length);
     print('[Main] Loaded $totalReviews total reviews');
 
+    // Re-check data source in case fallback occurred during loading
+    final actualDataSource = _dataProvider.dataSource;
+    final actualDataSourceLabel = actualDataSource == DataSource.yelp ? '📊 Real Yelp Data' : '🧪 Synthetic Demo Data';
+
     setState(() {
-      _status = '$dataSourceLabel - ${_restaurants.length} restaurants, $totalReviews reviews loaded';
+      _currentDataSource = actualDataSource; // Update to actual source used
+      _status = '$actualDataSourceLabel - ${_restaurants.length} restaurants, $totalReviews reviews loaded';
     });
   }
 
