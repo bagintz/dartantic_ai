@@ -79,19 +79,21 @@ flutter pub get
 
 3. **Choose your LLM backend:**
 
-#### Option A: Local Ollama (FREE, no API key needed)
+#### Option A: Ollama (Local or Cloud via Ollama)
 
 ```bash
 # Install Ollama (if not already installed)
 # macOS/Linux: curl -fsSL https://ollama.ai/install.sh | sh
 # Windows: Download from https://ollama.ai
 
-# Pull the recommended model (best for tool calling)
-ollama pull qwen2.5:7b-instruct   # Default model, best tool support
+# Cloud models (fast, powerful, via Ollama API):
+ollama pull deepseek-v3.1:671b-cloud    # DEFAULT - best quality, 671B params
+ollama pull gpt-oss:120b-cloud          # Alternative, 120B params
+ollama pull qwen3-coder:480b-cloud      # Good for technical tasks
 
-# Or alternatives:
-# ollama pull llama3.2        # Smaller/faster but has tool calling issues
-# ollama pull mistral         # Good alternative
+# Or local models (FREE, runs on your Mac):
+ollama pull qwen2.5:7b-instruct         # Local, 7B params, good tool support
+ollama pull mistral-small3.2:24b        # Local, 24B params, higher quality
 
 # Start Ollama (usually auto-starts, but if not)
 ollama serve
@@ -110,29 +112,35 @@ export GOOGLE_API_KEY="your-key-here"
 
 ### Running the App
 
-#### On macOS (native desktop app - recommended):
+#### With Default (DeepSeek v3.1 Cloud via Ollama):
 
 ```bash
 flutter run -d macos
 ```
 
-#### On Web (Chrome):
+This uses `ollama:deepseek-v3.1:671b-cloud` - powerful 671B parameter model via Ollama.
+
+#### Override with Different Model:
+
+```bash
+# Use local Ollama model (free, runs on your Mac)
+flutter run -d macos --dart-define=MODEL=ollama:qwen2.5:7b-instruct
+
+# Use other Ollama cloud models
+flutter run -d macos --dart-define=MODEL=ollama:gpt-oss:120b-cloud
+flutter run -d macos --dart-define=MODEL=ollama:qwen3-coder:480b-cloud
+
+# Or use direct cloud providers
+flutter run -d macos --dart-define=MODEL=openai:gpt-4o-mini
+flutter run -d macos --dart-define=MODEL=anthropic:claude-3-5-sonnet-20241022
+```
+
+#### Run on Web (Chrome):
 
 ```bash
 flutter run -d chrome
-```
-
-#### With Cloud Provider Override:
-
-```bash
-# OpenAI GPT-4o-mini (fast, cheap)
-flutter run -d macos --dart-define=MODEL=openai:gpt-4o-mini
-
-# Anthropic Claude Sonnet (best quality)
-flutter run -d macos --dart-define=MODEL=anthropic:claude-3-5-sonnet-20241022
-
-# Google Gemini Flash (fast, free tier available)
-flutter run -d macos --dart-define=MODEL=google:gemini-1.5-flash
+# Or with model override:
+flutter run -d chrome --dart-define=MODEL=ollama:qwen2.5:7b-instruct
 ```
 
 #### Other platforms:

@@ -79,11 +79,14 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      // Initialize agent - defaults to local Ollama (qwen2.5:7b-instruct)
-      // Override with --dart-define=MODEL=openai:gpt-4o-mini for cloud
+      // Initialize agent
+      // Options:
+      // - ollama:deepseek-v3.1:671b-cloud (cloud via Ollama, fast & powerful)
+      // - ollama:qwen2.5:7b-instruct (local, free)
+      // - openai:gpt-4o-mini (direct cloud)
       final modelString = const String.fromEnvironment(
         'MODEL',
-        defaultValue: 'ollama', // Uses qwen2.5:7b-instruct by default
+        defaultValue: 'ollama:deepseek-v3.1:671b-cloud',
       );
 
       setState(() => _status = 'Initializing agent ($modelString)...');
