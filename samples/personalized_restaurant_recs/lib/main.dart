@@ -118,6 +118,7 @@ class _HomePageState extends State<HomePage> {
   final List<EvolutionJourneyLog> _evolutionHistory = [];
   bool _isRunning = false;
   String _status = 'Ready to start';
+  String _currentPhase = ''; // Added to show high-level phase
   Map<String, RestaurantAnalysisSOP> _currentPopulation = {};
 
   // Final results
@@ -145,6 +146,7 @@ class _HomePageState extends State<HomePage> {
       _currentPopulation = {};
       _recommendations = [];
       _status = 'Ready to start';
+      _currentPhase = '';
       _hasStarted = false;
       _isRunning = false;
       _currentDataSource = null;
@@ -184,7 +186,8 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _isRunning = true;
-      _status = 'Loading data...';
+      _currentPhase = 'LOADING DATA';
+      _status = 'Loading restaurant data...';
     });
 
     try {
@@ -198,8 +201,12 @@ class _HomePageState extends State<HomePage> {
       final restaurant = _restaurants[restaurantIndex];
       final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
 
+      final currentGen = _evolutionHistory.length + 1;
+      final maxGen = _maxGenerations.toInt();
+
       setState(() {
-        _status = 'Running analysis on ${restaurant.name} (Generation ${_evolutionHistory.length + 1})...';
+        _currentPhase = 'EVOLUTION - Generation $currentGen of $maxGen';
+        _status = 'Analyzing ${restaurant.name} with current best SOP...';
       });
 
       // Initialize or use current population
@@ -252,7 +259,7 @@ class _HomePageState extends State<HomePage> {
 
       // Evolve
       setState(() {
-        _status = 'Evaluating and evolving...';
+        _status = 'Evaluating analysis quality and evolving SOPs...';
       });
 
       final mutationStrategy = CompositeMutation(
@@ -306,7 +313,8 @@ class _HomePageState extends State<HomePage> {
             mutationDescription: mutationDesc,
           ),
         );
-        _status = 'Generation ${_evolutionHistory.length} complete!';
+        _currentPhase = 'EVOLUTION - Generation ${_evolutionHistory.length} of $maxGen';
+        _status = 'Generation ${_evolutionHistory.length} complete! (Score: ${cycleResult.bestResult.overallScore.toStringAsFixed(3)})';
         _isRunning = false;
       });
 
@@ -427,7 +435,8 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() {
-      _status = 'Scoring all restaurants with evolved SOP...';
+      _currentPhase = 'FINAL SCORING - Testing all restaurants';
+      _status = 'Now scoring ALL ${_restaurants.length} restaurants with the evolved SOP...';
     });
 
     final modelString = const String.fromEnvironment(
@@ -448,7 +457,7 @@ class _HomePageState extends State<HomePage> {
       final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
 
       setState(() {
-        _status = 'Scoring ${restaurant.name} (${i + 1}/${_restaurants.length})...';
+        _status = '${i + 1}/${_restaurants.length}: Analyzing ${restaurant.name}...';
       });
 
       final result = await workflow.analyze(
@@ -491,7 +500,8 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _recommendations = recommendations;
-      _status = 'Recommendations complete!';
+      _currentPhase = 'COMPLETE ✓';
+      _status = 'Your top ${recommendations.length} personalized recommendations are ready!';
     });
   }
 
@@ -872,11 +882,61 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
+
+        // Phase indicator
+        if (_currentPhase.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: _currentPhase.contains('COMPLETE')
+                  ? Colors.green.shade100
+                  : Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _currentPhase.contains('COMPLETE')
+                    ? Colors.green
+                    : Colors.blue,
+                width: 2,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _currentPhase.contains('LOADING')
+                      ? Icons.download
+                      : _currentPhase.contains('EVOLUTION')
+                          ? Icons.science
+                          : _currentPhase.contains('FINAL SCORING')
+                              ? Icons.assessment
+                              : Icons.check_circle,
+                  size: 16,
+                  color: _currentPhase.contains('COMPLETE')
+                      ? Colors.green.shade700
+                      : Colors.blue.shade700,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _currentPhase,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: _currentPhase.contains('COMPLETE')
+                        ? Colors.green.shade700
+                        : Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (_currentPhase.isNotEmpty) const SizedBox(height: 8),
+
+        // Detail status
         Text(
           _status,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: _isRunning ? Colors.orange : Colors.green,
+                color: _isRunning ? Colors.orange.shade700 : Colors.grey.shade700,
                 fontWeight: FontWeight.w500,
               ),
         ),
