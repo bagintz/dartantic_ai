@@ -273,7 +273,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _evolutionHistory.add(
           EvolutionJourneyLog(
-            generation: _evolutionHistory.length + 1, // Start at 1, not 0
+            generation: _evolutionHistory.length, // 0-indexed internally
             bestScore: cycleResult.bestResult.overallScore,
             paretoSize: cycleResult.paretoFrontier.length,
             bestResult: cycleResult.bestResult,
@@ -700,23 +700,11 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Evolution Journey',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+        Text(
+          'Evolution Journey',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-            ),
-            if (!_isRunning && _evolutionHistory.isNotEmpty)
-              FilledButton.icon(
-                onPressed: _runEvolutionCycle,
-                icon: const Icon(Icons.add),
-                label: const Text('Process More'),
-              ),
-          ],
         ),
         const SizedBox(height: 8),
         Text(
@@ -769,15 +757,29 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
         ),
+
+        // Process More button at the bottom
+        if (!_isRunning && _evolutionHistory.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _runEvolutionCycle,
+              icon: const Icon(Icons.add),
+              label: const Text('Process More'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.all(16.0),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildScoreChart() {
     final spots = _evolutionHistory
-        .asMap()
-        .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value.bestScore))
+        .map((log) => FlSpot(log.generation.toDouble(), log.bestScore))
         .toList();
 
     return LineChart(
@@ -801,8 +803,9 @@ class _HomePageState extends State<HomePage> {
               showTitles: true,
               reservedSize: 30,
               getTitlesWidget: (value, meta) {
+                // Display as 1-indexed for human readability
                 return Text(
-                  'Gen ${value.toInt()}',
+                  'Gen ${(value.toInt() + 1)}',
                   style: const TextStyle(fontSize: 10),
                 );
               },
@@ -826,15 +829,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildEvolutionTile(EvolutionJourneyLog log) {
+    final displayGeneration = log.generation + 1; // Display as 1-indexed
     return ExpansionTile(
       leading: CircleAvatar(
-        backgroundColor: log.generation == 1
+        backgroundColor: log.generation == 0
             ? Colors.grey
             : (Theme.of(context).colorScheme.primary),
-        child: Text('${log.generation}'),
+        child: Text('$displayGeneration'),
       ),
       title: Text(
-        'Generation ${log.generation} - Overall: ${log.bestScore.toStringAsFixed(3)}',
+        'Generation $displayGeneration - Overall: ${log.bestScore.toStringAsFixed(3)}',
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
       subtitle: Text(
