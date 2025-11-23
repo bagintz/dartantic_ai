@@ -110,30 +110,35 @@ export GOOGLE_API_KEY="your-key-here"
 
 ### Running the App
 
-#### With Local Ollama (default):
+#### On macOS (native desktop app - recommended):
+
+```bash
+flutter run -d macos
+```
+
+#### On Web (Chrome):
 
 ```bash
 flutter run -d chrome
 ```
 
-#### With Cloud Provider:
+#### With Cloud Provider Override:
 
 ```bash
 # OpenAI GPT-4o-mini (fast, cheap)
-flutter run -d chrome --dart-define=MODEL=openai:gpt-4o-mini
+flutter run -d macos --dart-define=MODEL=openai:gpt-4o-mini
 
 # Anthropic Claude Sonnet (best quality)
-flutter run -d chrome --dart-define=MODEL=anthropic:claude-3-5-sonnet-20241022
+flutter run -d macos --dart-define=MODEL=anthropic:claude-3-5-sonnet-20241022
 
 # Google Gemini Flash (fast, free tier available)
-flutter run -d chrome --dart-define=MODEL=google:gemini-1.5-flash
+flutter run -d macos --dart-define=MODEL=google:gemini-1.5-flash
 ```
 
-#### Desktop options:
+#### Other platforms:
 ```bash
-flutter run -d macos    # macOS
-flutter run -d linux    # Linux
-flutter run -d windows  # Windows
+flutter run -d linux    # Linux desktop
+flutter run -d windows  # Windows desktop
 ```
 
 ## 📊 Using the App
