@@ -302,14 +302,22 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadData() async {
     setState(() {
-      _status = 'Loading restaurant data...';
+      _status = 'Checking for Yelp Academic Dataset at /tmp/yelp_dataset/...';
     });
 
     final dataSource = await _dataProvider.initialize();
 
-    final dataSourceLabel = dataSource == DataSource.yelp
-        ? '📊 Real Yelp Data'
-        : '🧪 Synthetic Demo Data';
+    String dataSourceLabel;
+    String dataSourceDetail;
+    if (dataSource == DataSource.yelp) {
+      dataSourceLabel = '📊 Real Yelp Data';
+      dataSourceDetail = 'Using Yelp Academic Dataset from /tmp/yelp_dataset/';
+    } else {
+      dataSourceLabel = '🧪 Synthetic Demo Data';
+      dataSourceDetail = 'Yelp dataset not found - using generated demo data';
+    }
+
+    print('[Main] Data source: $dataSourceLabel - $dataSourceDetail');
 
     final zipCode = _zipCodeController.text.trim();
     final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
@@ -324,9 +332,14 @@ class _HomePageState extends State<HomePage> {
       throw Exception('No restaurants found in zip code area $zipPrefix** (searching $zipCode)');
     }
 
+    print('[Main] Loaded ${_restaurants.length} restaurants, sorting by rating...');
+
     // Take top 10 by rating
     _restaurants.sort((a, b) => b.stars.compareTo(a.stars));
     _restaurants = _restaurants.take(10).toList();
+
+    print('[Main] Selected top ${_restaurants.length} restaurants by rating');
+    _restaurants.forEach((r) => print('  - ${r.name} (${r.stars}★) - ${r.categories.join(", ")}'));
 
     setState(() {
       _status = '$dataSourceLabel - Loading reviews for ${_restaurants.length} restaurants...';
@@ -334,8 +347,11 @@ class _HomePageState extends State<HomePage> {
 
     _reviewsByRestaurant = await _dataProvider.loadReviews(_restaurants);
 
+    final totalReviews = _reviewsByRestaurant.values.fold(0, (sum, list) => sum + list.length);
+    print('[Main] Loaded $totalReviews total reviews');
+
     setState(() {
-      _status = '$dataSourceLabel - Data loaded. Starting evolution...';
+      _status = '$dataSourceLabel - ${_restaurants.length} restaurants, $totalReviews reviews loaded';
     });
   }
 
