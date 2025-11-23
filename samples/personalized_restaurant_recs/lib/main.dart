@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'src/config/restaurant_analysis_sop.dart';
 import 'src/data/synthetic_data.dart';
 import 'src/evaluation/evaluation_result.dart';
 import 'src/evaluation/restaurant_evaluator.dart';
@@ -144,6 +145,16 @@ class _HomePageState extends State<HomePage> {
         persona: persona,
       );
 
+      // Get the best SOP from the cycle result
+      final bestSOP = cycleResult.population[cycleResult.bestOverall]!;
+
+      // Generate mutation description by comparing with baseline
+      String? mutationDesc;
+      if (_currentGeneration > 0) {
+        final baseline = population.values.first;
+        mutationDesc = _describeMutation(baseline, bestSOP);
+      }
+
       setState(() {
         _currentGeneration++;
         _evolutionHistory.add(
@@ -152,6 +163,9 @@ class _HomePageState extends State<HomePage> {
             bestScore: cycleResult.bestResult.overallScore,
             paretoSize: cycleResult.paretoFrontier.length,
             bestResult: cycleResult.bestResult,
+            analysisText: result.analysis,
+            sop: bestSOP,
+            mutationDescription: mutationDesc,
           ),
         );
         _status = 'Generation $_currentGeneration complete!';
@@ -163,6 +177,40 @@ class _HomePageState extends State<HomePage> {
         _isRunning = false;
       });
     }
+  }
+
+  String _describeMutation(RestaurantAnalysisSOP baseline, RestaurantAnalysisSOP mutated) {
+    final changes = <String>[];
+
+    if (baseline.reviewRetrieverK != mutated.reviewRetrieverK) {
+      changes.add('Review count: ${baseline.reviewRetrieverK} → ${mutated.reviewRetrieverK}');
+    }
+
+    if (baseline.useDataAnalyst != mutated.useDataAnalyst) {
+      changes.add('Data analyst: ${baseline.useDataAnalyst ? "enabled" : "disabled"} → ${mutated.useDataAnalyst ? "enabled" : "disabled"}');
+    }
+
+    if (baseline.useServiceAnalyst != mutated.useServiceAnalyst) {
+      changes.add('Service analyst: ${baseline.useServiceAnalyst ? "enabled" : "disabled"} → ${mutated.useServiceAnalyst ? "enabled" : "disabled"}');
+    }
+
+    if (baseline.personalizationLevel != mutated.personalizationLevel) {
+      changes.add('Personalization: ${baseline.personalizationLevel} → ${mutated.personalizationLevel}');
+    }
+
+    if (baseline.plannerPrompt != mutated.plannerPrompt) {
+      changes.add('Planner prompt modified');
+    }
+
+    if (baseline.synthesizerPrompt != mutated.synthesizerPrompt) {
+      changes.add('Synthesizer prompt modified');
+    }
+
+    if (changes.isEmpty) {
+      return 'No changes (elite carried forward)';
+    }
+
+    return changes.join('\n');
   }
 
   @override
@@ -208,20 +256,104 @@ class _HomePageState extends State<HomePage> {
                     itemCount: _evolutionHistory.length,
                     itemBuilder: (context, index) {
                       final log = _evolutionHistory[index];
-                      return ListTile(
+                      return ExpansionTile(
                         leading: CircleAvatar(
+                          backgroundColor: log.generation == 0
+                            ? Colors.grey
+                            : Theme.of(context).colorScheme.primary,
                           child: Text('${log.generation}'),
                         ),
                         title: Text(
-                          'Overall: ${log.bestScore.toStringAsFixed(3)}',
+                          'Generation ${log.generation} - Overall: ${log.bestScore.toStringAsFixed(3)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          'Pareto Frontier: ${log.paretoSize} SOPs\n'
+                          'Pareto Frontier: ${log.paretoSize} SOPs | '
                           'Acc: ${log.bestResult.accuracy.toStringAsFixed(2)}, '
                           'Help: ${log.bestResult.helpfulness.toStringAsFixed(2)}, '
                           'Pers: ${log.bestResult.personalization.toStringAsFixed(2)}',
                         ),
-                        isThreeLine: true,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Mutation description
+                                if (log.mutationDescription != null) ...[
+                                  Text(
+                                    'Mutations Applied:',
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    log.mutationDescription!,
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
+
+                                // SOP Configuration
+                                Text(
+                                  'SOP Configuration:',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Review Count: ${log.sop.reviewRetrieverK}\n'
+                                  'Data Analyst: ${log.sop.useDataAnalyst ? "Enabled" : "Disabled"}\n'
+                                  'Service Analyst: ${log.sop.useServiceAnalyst ? "Enabled" : "Disabled"}\n'
+                                  'Personalization Level: ${log.sop.personalizationLevel}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Evaluation Scores
+                                Text(
+                                  'Detailed Evaluation Scores:',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Accuracy: ${log.bestResult.accuracy.toStringAsFixed(3)}\n'
+                                  'Completeness: ${log.bestResult.completeness.toStringAsFixed(3)}\n'
+                                  'Helpfulness: ${log.bestResult.helpfulness.toStringAsFixed(3)}\n'
+                                  'Conciseness: ${log.bestResult.conciseness.toStringAsFixed(3)}\n'
+                                  'Data-Grounded: ${log.bestResult.dataGrounded.toStringAsFixed(3)}\n'
+                                  'Personalization: ${log.bestResult.personalization.toStringAsFixed(3)}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Generated Analysis
+                                Text(
+                                  'Generated Analysis:',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    log.analysisText,
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -237,7 +369,9 @@ class _HomePageState extends State<HomePage> {
                     '• Run multi-agent analysis\n'
                     '• Evaluate across 5 dimensions\n'
                     '• Evolve better configurations\n'
-                    '• Track Pareto frontier',
+                    '• Track Pareto frontier\n\n'
+                    'Tap each generation to see detailed analysis,\n'
+                    'SOP configuration, and mutation information.',
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -260,10 +394,16 @@ class EvolutionLog {
     required this.bestScore,
     required this.paretoSize,
     required this.bestResult,
+    required this.analysisText,
+    required this.sop,
+    this.mutationDescription,
   });
 
   final int generation;
   final double bestScore;
   final int paretoSize;
   final EvaluationResult bestResult;
+  final String analysisText;
+  final RestaurantAnalysisSOP sop;
+  final String? mutationDescription;
 }

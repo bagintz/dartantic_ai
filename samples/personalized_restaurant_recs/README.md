@@ -155,7 +155,7 @@ flutter run -d windows  # Windows desktop
 2. The system will:
    - Generate synthetic restaurant data (or load Yelp dataset)
    - Run baseline analysis with default SOP
-   - Evaluate across 5 dimensions
+   - Evaluate across 6 dimensions
    - Mutate and evolve better configurations
    - Display results in evolution history
 
@@ -163,6 +163,13 @@ flutter run -d windows  # Windows desktop
    - Overall score trending upward
    - Pareto frontier expanding (multiple good solutions)
    - Specific dimensions improving based on mutations
+
+4. **View detailed transparency:**
+   - **Tap any generation** to expand and see detailed information
+   - **Mutations Applied:** See exactly what changed from the baseline
+   - **SOP Configuration:** View the "genome" parameters for that generation
+   - **Evaluation Scores:** All 6 dimensions with precise scores
+   - **Generated Analysis:** The actual restaurant recommendation text produced by the multi-agent workflow
 
 ## 🗂️ Project Structure
 
