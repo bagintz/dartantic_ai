@@ -86,10 +86,12 @@ flutter pub get
 # macOS/Linux: curl -fsSL https://ollama.ai/install.sh | sh
 # Windows: Download from https://ollama.ai
 
-# Pull a model (choose one)
-ollama pull llama3.2        # Default, recommended (2B params, fast)
-ollama pull llama3.2:3b     # Larger, better quality
-ollama pull qwen2.5:7b      # Even better quality
+# Pull the recommended model (best for tool calling)
+ollama pull qwen2.5:7b-instruct   # Default model, best tool support
+
+# Or alternatives:
+# ollama pull llama3.2        # Smaller/faster but has tool calling issues
+# ollama pull mistral         # Good alternative
 
 # Start Ollama (usually auto-starts, but if not)
 ollama serve

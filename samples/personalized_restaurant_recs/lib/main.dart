@@ -79,11 +79,11 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      // Initialize agent - defaults to local Ollama, can override with env var
-      // Set MODEL env var to use cloud: MODEL=openai:gpt-4o-mini
+      // Initialize agent - defaults to local Ollama (qwen2.5:7b-instruct)
+      // Override with --dart-define=MODEL=openai:gpt-4o-mini for cloud
       final modelString = const String.fromEnvironment(
         'MODEL',
-        defaultValue: 'ollama:llama3.2',
+        defaultValue: 'ollama', // Uses qwen2.5:7b-instruct by default
       );
 
       setState(() => _status = 'Initializing agent ($modelString)...');
