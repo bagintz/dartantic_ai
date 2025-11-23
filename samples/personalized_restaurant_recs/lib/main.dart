@@ -79,8 +79,15 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      // Initialize agent (would need API key in real usage)
-      final agent = Agent('openai:gpt-4o-mini');
+      // Initialize agent - defaults to local Ollama, can override with env var
+      // Set MODEL env var to use cloud: MODEL=openai:gpt-4o-mini
+      final modelString = const String.fromEnvironment(
+        'MODEL',
+        defaultValue: 'ollama:llama3.2',
+      );
+
+      setState(() => _status = 'Initializing agent ($modelString)...');
+      final agent = Agent(modelString);
 
       // Select test restaurant and persona
       final restaurant = _restaurants.first;

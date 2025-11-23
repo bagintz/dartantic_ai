@@ -61,7 +61,8 @@ Baseline SOP → Multi-Agent Analysis → Evaluation → Pareto Frontier
 
 - Flutter 3.38.3+ installed ([Download](https://flutter.dev/docs/get-started/install))
 - Dart 3.10.1+
-- OpenAI API key (or other supported LLM provider)
+- **Option A**: [Ollama](https://ollama.ai) installed locally (FREE, recommended for testing)
+- **Option B**: OpenAI/Anthropic/Google API key (faster, costs money)
 
 ### Installation
 
@@ -76,23 +77,57 @@ cd dartantic_ai/samples/personalized_restaurant_recs
 flutter pub get
 ```
 
-3. Set up your API key (one of):
-```bash
-# Option 1: Environment variable
-export OPENAI_API_KEY="your-api-key-here"
+3. **Choose your LLM backend:**
 
-# Option 2: ~/.global_env.sh
-echo 'export OPENAI_API_KEY="your-api-key-here"' >> ~/.global_env.sh
+#### Option A: Local Ollama (FREE, no API key needed)
+
+```bash
+# Install Ollama (if not already installed)
+# macOS/Linux: curl -fsSL https://ollama.ai/install.sh | sh
+# Windows: Download from https://ollama.ai
+
+# Pull a model (choose one)
+ollama pull llama3.2        # Default, recommended (2B params, fast)
+ollama pull llama3.2:3b     # Larger, better quality
+ollama pull qwen2.5:7b      # Even better quality
+
+# Start Ollama (usually auto-starts, but if not)
+ollama serve
+```
+
+#### Option B: Cloud Provider (OpenAI/Anthropic/Google)
+
+```bash
+# Set your API key
+export OPENAI_API_KEY="sk-your-key-here"
+# OR
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+# OR
+export GOOGLE_API_KEY="your-key-here"
 ```
 
 ### Running the App
 
-**Web:**
+#### With Local Ollama (default):
+
 ```bash
 flutter run -d chrome
 ```
 
-**Desktop:**
+#### With Cloud Provider:
+
+```bash
+# OpenAI GPT-4o-mini (fast, cheap)
+flutter run -d chrome --dart-define=MODEL=openai:gpt-4o-mini
+
+# Anthropic Claude Sonnet (best quality)
+flutter run -d chrome --dart-define=MODEL=anthropic:claude-3-5-sonnet-20241022
+
+# Google Gemini Flash (fast, free tier available)
+flutter run -d chrome --dart-define=MODEL=google:gemini-1.5-flash
+```
+
+#### Desktop options:
 ```bash
 flutter run -d macos    # macOS
 flutter run -d linux    # Linux
