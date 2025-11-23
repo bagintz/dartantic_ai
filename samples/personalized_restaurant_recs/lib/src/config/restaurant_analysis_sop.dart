@@ -32,15 +32,26 @@ class RestaurantAnalysisSOP {
   /// Create baseline SOP - the starting point for evolution
   factory RestaurantAnalysisSOP.baseline() {
     return RestaurantAnalysisSOP(
-      plannerPrompt: '''You are a restaurant analysis planner. Your job is to coordinate analysis of restaurant reviews.
-Break down the analysis into clear steps and identify what information needs to be extracted.''',
+      plannerPrompt: '''You are a restaurant analysis planner coordinating a PERSONALIZED review analysis.
+
+Your job is to create an analysis plan that helps a SPECIFIC USER decide if this restaurant matches THEIR preferences.
+
+Consider the user's persona and priorities when planning what information to extract from reviews.
+Break down the analysis into clear steps focused on what THIS USER cares about.''',
       reviewRetrieverK: 5,
-      synthesizerPrompt: '''Synthesize the analysis results into a concise, helpful recommendation.
-Focus on providing actionable insights for the user.''',
+      synthesizerPrompt: '''Synthesize the analysis results into a PERSONALIZED recommendation.
+
+CRITICAL: This recommendation is for a SPECIFIC USER with specific priorities and preferences.
+- Focus heavily on whether this restaurant matches THE USER'S priorities
+- Highlight aspects that align with what THIS USER values
+- Flag any dealbreakers or red flags based on THE USER'S needs
+- Provide clear guidance: "Good fit" or "Not recommended" for THIS USER
+
+Be honest - if the restaurant doesn't match the user's persona, say so clearly.''',
       synthesizerModel: 'gpt-4o-mini',
       useDataAnalyst: true,
       useServiceAnalyst: false,
-      personalizationLevel: 'low',
+      personalizationLevel: 'medium',
       generation: 0,
     );
   }

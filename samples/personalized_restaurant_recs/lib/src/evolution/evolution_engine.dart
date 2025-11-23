@@ -42,6 +42,7 @@ class EvolutionEngine {
     required this.selectionStrategy,
     this.populationSize = 10,
     this.eliteCount = 2,
+    this.customBaseline,
     int? seed,
   }) : _random = Random(seed);
 
@@ -50,6 +51,7 @@ class EvolutionEngine {
   final SelectionStrategy selectionStrategy;
   final int populationSize;
   final int eliteCount;
+  final RestaurantAnalysisSOP? customBaseline;
   final Random _random;
 
   /// Run one evolution cycle
@@ -112,8 +114,8 @@ class EvolutionEngine {
   Map<String, RestaurantAnalysisSOP> initializePopulation() {
     final population = <String, RestaurantAnalysisSOP>{};
 
-    // Start with baseline
-    final baseline = RestaurantAnalysisSOP.baseline();
+    // Start with baseline (custom or default)
+    final baseline = customBaseline ?? RestaurantAnalysisSOP.baseline();
     population[baseline.id] = baseline;
 
     // Create variations

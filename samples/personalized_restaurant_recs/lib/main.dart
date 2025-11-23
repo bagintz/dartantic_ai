@@ -87,6 +87,8 @@ class YelpCity {
 class _HomePageState extends State<HomePage> {
   final _dataProvider = DataProvider(seed: 42);
   final _scrollController = ScrollController();
+  final _plannerPromptController = TextEditingController();
+  final _synthesizerPromptController = TextEditingController();
 
   // Common cities in Yelp Academic Dataset
   static const _yelpCities = [
@@ -129,8 +131,19 @@ class _HomePageState extends State<HomePage> {
   DataSource? _currentDataSource;
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize prompt controllers with baseline values
+    final baseline = RestaurantAnalysisSOP.baseline();
+    _plannerPromptController.text = baseline.plannerPrompt;
+    _synthesizerPromptController.text = baseline.synthesizerPrompt;
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
+    _plannerPromptController.dispose();
+    _synthesizerPromptController.dispose();
     super.dispose();
   }
 
@@ -233,6 +246,7 @@ class _HomePageState extends State<HomePage> {
           selectionStrategy: ParetoSelection(),
           populationSize: _populationSize.toInt(),
           eliteCount: (_populationSize / 3).ceil(),
+          customBaseline: _createCustomBaseline(), // Use custom prompts from UI
         );
 
         _currentPopulation = engine.initializePopulation();
@@ -393,6 +407,20 @@ class _HomePageState extends State<HomePage> {
       _currentDataSource = actualDataSource; // Update to actual source used
       _status = '$actualDataSourceLabel - ${_restaurants.length} restaurants, $totalReviews reviews loaded';
     });
+  }
+
+  /// Create custom baseline SOP using prompts from UI
+  RestaurantAnalysisSOP _createCustomBaseline() {
+    return RestaurantAnalysisSOP(
+      plannerPrompt: _plannerPromptController.text,
+      reviewRetrieverK: 5,
+      synthesizerPrompt: _synthesizerPromptController.text,
+      synthesizerModel: 'gpt-4o-mini',
+      useDataAnalyst: true,
+      useServiceAnalyst: false,
+      personalizationLevel: 'medium',
+      generation: 0,
+    );
   }
 
   String _describeMutation(RestaurantAnalysisSOP baseline, RestaurantAnalysisSOP mutated) {
@@ -847,6 +875,47 @@ class _HomePageState extends State<HomePage> {
                     const Text(
                       'Note: More generations = better optimization but takes longer',
                       style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Baseline Prompts',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Edit these prompts to experiment with how they affect recommendations. '
+                      'Changes will be used as the starting point for evolution.',
+                      style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _plannerPromptController,
+                      decoration: const InputDecoration(
+                        labelText: 'Planner Prompt',
+                        helperText: 'Instructions for the analysis planner agent',
+                        helperMaxLines: 2,
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 6,
+                      enabled: !_hasStarted,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _synthesizerPromptController,
+                      decoration: const InputDecoration(
+                        labelText: 'Synthesizer Prompt',
+                        helperText: 'Instructions for the final recommendation synthesizer',
+                        helperMaxLines: 2,
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 8,
+                      enabled: !_hasStarted,
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),

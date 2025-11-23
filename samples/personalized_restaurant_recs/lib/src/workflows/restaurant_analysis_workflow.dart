@@ -62,6 +62,7 @@ class RestaurantAnalysisWorkflow {
         restaurant: restaurant,
         reviews: relevantReviews,
         plan: plan,
+        persona: persona, // Pass persona to data analyst
       );
     }
 
@@ -69,12 +70,14 @@ class RestaurantAnalysisWorkflow {
       analyses['service'] = await _runServiceAnalyst(
         reviews: relevantReviews,
         plan: plan,
+        persona: persona, // Pass persona to service analyst
       );
     }
 
     // Always run sentiment analyst
     analyses['sentiment'] = await _runSentimentAnalyst(
       reviews: relevantReviews,
+      persona: persona, // Pass persona to sentiment analyst
     );
 
     // Step 4: Synthesize results (using SOP synthesizer prompt)
@@ -140,10 +143,15 @@ Create a brief analysis plan (2-3 sentences).''';
     required Restaurant restaurant,
     required List<Review> reviews,
     required String plan,
+    required UserPersona persona,
   }) async {
     final reviewTexts = reviews.map((r) => '${r.stars}★: ${r.text}').join('\n\n');
 
-    final prompt = '''You are a data analyst evaluating restaurant reviews.
+    final prompt = '''You are a data analyst evaluating restaurant reviews FOR A SPECIFIC USER.
+
+User Persona: ${persona.name}
+User Description: ${persona.description}
+User Priorities: ${persona.priorities.join(', ')}
 
 Restaurant: ${restaurant.name}
 Analysis Plan: $plan
@@ -151,12 +159,13 @@ Analysis Plan: $plan
 Reviews:
 $reviewTexts
 
-Extract key statistics and patterns:
-- Common themes in reviews
-- Rating distribution insights
-- Specific dishes mentioned
-- Consistency of quality
+Extract key statistics and patterns RELEVANT TO THIS USER:
+- Common themes in reviews that match user priorities
+- Rating patterns for aspects the user cares about
+- Specific dishes/features mentioned that align with user preferences
+- Consistency of aspects important to this user
 
+Focus on data that helps ${persona.name} make a decision.
 Provide a concise data-driven analysis (3-4 sentences).''';
 
     final result = await agent.send(prompt);
@@ -167,22 +176,28 @@ Provide a concise data-driven analysis (3-4 sentences).''';
   Future<String> _runServiceAnalyst({
     required List<Review> reviews,
     required String plan,
+    required UserPersona persona,
   }) async {
     final reviewTexts = reviews.map((r) => '${r.stars}★: ${r.text}').join('\n\n');
 
-    final prompt = '''You are a service quality analyst.
+    final prompt = '''You are a service quality analyst evaluating FOR A SPECIFIC USER.
+
+User Persona: ${persona.name}
+User Description: ${persona.description}
+User Priorities: ${persona.priorities.join(', ')}
 
 Analysis Plan: $plan
 
 Reviews:
 $reviewTexts
 
-Analyze service aspects:
-- Staff friendliness and attentiveness
-- Wait times and efficiency
-- Overall customer experience
-- Service consistency
+Analyze service aspects RELEVANT TO THIS USER:
+- Staff behavior that matters to ${persona.name}
+- Service features aligned with user priorities
+- Customer experience factors this user values
+- Service consistency in areas the user cares about
 
+Filter your analysis for what helps ${persona.name} decide.
 Provide a concise service analysis (2-3 sentences).''';
 
     final result = await agent.send(prompt);
@@ -192,18 +207,25 @@ Provide a concise service analysis (2-3 sentences).''';
   /// Run sentiment analyst agent
   Future<String> _runSentimentAnalyst({
     required List<Review> reviews,
+    required UserPersona persona,
   }) async {
     final reviewTexts = reviews.map((r) => '${r.stars}★: ${r.text}').join('\n\n');
 
-    final prompt = '''Analyze the overall sentiment of these restaurant reviews.
+    final prompt = '''Analyze the sentiment of restaurant reviews FOR A SPECIFIC USER.
+
+User Persona: ${persona.name}
+User Description: ${persona.description}
+User Priorities: ${persona.priorities.join(', ')}
 
 Reviews:
 $reviewTexts
 
-Provide a brief sentiment summary (2-3 sentences) covering:
-- Overall positive/negative balance
-- Emotional tone
-- Customer satisfaction level''';
+Analyze sentiment focusing on what matters to ${persona.name}:
+- Positive/negative balance for aspects they care about
+- Emotional tone around their priorities
+- Satisfaction levels for features relevant to this user
+
+Provide a brief persona-filtered sentiment summary (2-3 sentences).''';
 
     final result = await agent.send(prompt);
     return result.output;
