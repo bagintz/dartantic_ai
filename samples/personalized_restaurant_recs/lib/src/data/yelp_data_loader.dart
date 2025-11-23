@@ -135,6 +135,8 @@ class YelpDataLoader {
   Review? _parseReview(Map<String, dynamic> json) {
     try {
       final reviewId = json['review_id'] as String;
+      final userId = json['user_id'] as String;
+      final businessId = json['business_id'] as String;
       final text = json['text'] as String;
       final stars = (json['stars'] as num?)?.toInt() ?? 0;
       final useful = (json['useful'] as num?)?.toInt() ?? 0;
@@ -144,7 +146,9 @@ class YelpDataLoader {
       final date = DateTime.parse(dateStr);
 
       return Review(
-        id: reviewId,
+        reviewId: reviewId,
+        userId: userId,
+        businessId: businessId,
         text: text,
         stars: stars,
         useful: useful,

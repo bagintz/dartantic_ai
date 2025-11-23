@@ -60,7 +60,11 @@ class DataProvider {
     }
 
     // Use synthetic data
-    return _syntheticGenerator.generateRestaurants(count: 10);
+    final dataset = _syntheticGenerator.generateDataset(
+      restaurantCount: 10,
+      reviewsPerRestaurant: 20,
+    );
+    return dataset['restaurants'] as List<Restaurant>;
   }
 
   /// Load reviews for restaurants
@@ -80,12 +84,17 @@ class DataProvider {
       }
     }
 
-    // Use synthetic data
-    return _syntheticGenerator.generateReviewsByRestaurant(restaurants);
+    // Use synthetic data - generate reviews for each restaurant
+    final reviewsByRestaurant = <String, List<Review>>{};
+    for (final restaurant in restaurants) {
+      reviewsByRestaurant[restaurant.businessId] =
+          _syntheticGenerator.generateReviews(restaurant, count: 20);
+    }
+    return reviewsByRestaurant;
   }
 
   /// Get sample user personas
   List<UserPersona> getSamplePersonas() {
-    return _syntheticGenerator.getSamplePersonas();
+    return UserPersona.allPersonas;
   }
 }
