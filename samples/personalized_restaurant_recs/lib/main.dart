@@ -411,7 +411,8 @@ class _HomePageState extends State<HomePage> {
 
       // Evaluate the analysis to get a real score
       final evaluation = await evaluator.evaluate(
-        analysisText: result.analysis,
+        sopId: bestSop.id,
+        analysis: result.analysis,
         sourceReviews: reviews,
         persona: _selectedPersona!,
       );
