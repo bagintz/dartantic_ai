@@ -8,30 +8,17 @@ class SyntheticDataGenerator {
 
   final Random _random;
 
-  static const _restaurantNames = [
-    "Luigi's Italian Bistro",
-    'The Golden Dragon',
-    'Mama Rosa Trattoria',
-    'Sakura Sushi House',
-    'El Mariachi',
-    'Le Petit Café',
-    'The Burger Joint',
-    'Spice of India',
-    'Tokyo Ramen Bar',
-    'Mediterranean Grill',
-  ];
-
-  static const _categories = [
-    'Italian',
-    'Chinese',
-    'Japanese',
-    'Mexican',
-    'French',
-    'American',
-    'Indian',
-    'Mediterranean',
-    'Sushi',
-    'Fast Food',
+  static const _restaurantData = [
+    ("Luigi's Italian Bistro", ['Italian', 'Pizza']),
+    ('The Golden Dragon', ['Chinese', 'Asian']),
+    ('Mama Rosa Trattoria', ['Italian', 'Mediterranean']),
+    ('Sakura Sushi House', ['Japanese', 'Sushi']),
+    ('El Mariachi', ['Mexican', 'Latin American']),
+    ('Le Petit Café', ['French', 'Cafe']),
+    ('The Burger Joint', ['American', 'Burgers', 'Fast Food']),
+    ('Spice of India', ['Indian', 'Asian']),
+    ('Tokyo Ramen Bar', ['Japanese', 'Ramen', 'Asian']),
+    ('Mediterranean Grill', ['Mediterranean', 'Greek', 'Middle Eastern']),
   ];
 
   static const _positiveReviewTemplates = [
@@ -80,8 +67,8 @@ class SyntheticDataGenerator {
 
   /// Generate a restaurant with realistic data
   Restaurant generateRestaurant(int index, {String? zipCode}) {
-    final nameIndex = index % _restaurantNames.length;
-    final category = _categories[index % _categories.length];
+    final dataIndex = index % _restaurantData.length;
+    final (name, categories) = _restaurantData[dataIndex];
 
     // Determine location based on zip code if provided
     String city;
@@ -144,7 +131,7 @@ class SyntheticDataGenerator {
 
     return Restaurant(
       businessId: 'rest_${index.toString().padLeft(5, "0")}',
-      name: _restaurantNames[nameIndex],
+      name: name,
       address: '${100 + _random.nextInt(900)} Main St',
       city: city,
       state: state,
@@ -153,7 +140,7 @@ class SyntheticDataGenerator {
       longitude: longitude,
       stars: 2.5 + _random.nextDouble() * 2.5, // 2.5 to 5.0
       reviewCount: 10 + _random.nextInt(200),
-      categories: [category],
+      categories: categories,
       attributes: {
         'good_for_kids': _random.nextBool(),
         'has_outdoor_seating': _random.nextBool(),
