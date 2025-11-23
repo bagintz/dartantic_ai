@@ -171,12 +171,13 @@ class _HomePageState extends State<HomePage> {
         await _loadData();
       }
 
-      // Pick a random restaurant for this cycle
-      final restaurant = _restaurants.first;
+      // Pick a different restaurant for each generation (rotate through the list)
+      final restaurantIndex = _evolutionHistory.length % _restaurants.length;
+      final restaurant = _restaurants[restaurantIndex];
       final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
 
       setState(() {
-        _status = 'Running analysis (Generation ${_evolutionHistory.length + 1})...';
+        _status = 'Running analysis on ${restaurant.name} (Generation ${_evolutionHistory.length + 1})...';
       });
 
       // Initialize or use current population
