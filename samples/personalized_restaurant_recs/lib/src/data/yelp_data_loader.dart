@@ -31,6 +31,10 @@ class YelpDataLoader {
     final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
 
     final restaurants = <Restaurant>[];
+    final seenZipPrefixes = <String>{};
+    var totalBusinesses = 0;
+    var totalRestaurants = 0;
+
     final lines = businessFile.openRead()
         .transform(utf8.decoder)
         .transform(const LineSplitter());
@@ -40,17 +44,26 @@ class YelpDataLoader {
 
       try {
         final json = jsonDecode(line) as Map<String, dynamic>;
+        totalBusinesses++;
 
         // Check if this business matches the zip code prefix
         final postalCode = json['postal_code'] as String?;
         if (postalCode == null || postalCode.length < 3) continue;
 
         final restaurantPrefix = postalCode.substring(0, 3);
+
+        // Track unique zip prefixes for debugging
+        if (!seenZipPrefixes.contains(restaurantPrefix)) {
+          seenZipPrefixes.add(restaurantPrefix);
+        }
+
         if (restaurantPrefix != zipPrefix) continue;
 
         // Only include restaurants (has categories)
         final categories = json['categories'] as String?;
         if (categories == null || !_isRestaurant(categories)) continue;
+
+        totalRestaurants++;
 
         // Convert to our Restaurant model
         final restaurant = _parseRestaurant(json);
@@ -61,6 +74,14 @@ class YelpDataLoader {
         // Skip malformed lines
         continue;
       }
+    }
+
+    print('[YelpDataLoader] Scanned $totalBusinesses businesses total');
+    print('[YelpDataLoader] Found $totalRestaurants restaurants in zip prefix $zipPrefix');
+    print('[YelpDataLoader] Dataset contains ${seenZipPrefixes.length} unique zip prefixes');
+    if (seenZipPrefixes.isNotEmpty) {
+      final sortedPrefixes = seenZipPrefixes.toList()..sort();
+      print('[YelpDataLoader] Sample zip prefixes: ${sortedPrefixes.take(20).join(", ")}');
     }
 
     return restaurants;
