@@ -378,7 +378,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() {
-      _status = 'Generating final recommendations...';
+      _status = 'Scoring all restaurants with evolved SOP...';
     });
 
     final modelString = const String.fromEnvironment(
@@ -388,18 +388,18 @@ class _HomePageState extends State<HomePage> {
 
     final agent = Agent(modelString);
     final workflow = RestaurantAnalysisWorkflow(agent: agent);
+    final evaluator = RestaurantEvaluator(agent: agent);
     final bestSop = _evolutionHistory.last.sop;
 
-    // Generate analysis for top 3 restaurants
-    final recommendations = <RestaurantRecommendation>[];
-    final topRestaurants = _restaurants.take(3).toList();
+    // Analyze and score ALL restaurants with the evolved SOP
+    final scoredRestaurants = <({Restaurant restaurant, String analysis, double score})>[];
 
-    for (var i = 0; i < topRestaurants.length; i++) {
-      final restaurant = topRestaurants[i];
+    for (var i = 0; i < _restaurants.length; i++) {
+      final restaurant = _restaurants[i];
       final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
 
       setState(() {
-        _status = 'Analyzing ${restaurant.name} (${i + 1}/3)...';
+        _status = 'Scoring ${restaurant.name} (${i + 1}/${_restaurants.length})...';
       });
 
       final result = await workflow.analyze(
@@ -409,15 +409,35 @@ class _HomePageState extends State<HomePage> {
         persona: _selectedPersona!,
       );
 
-      recommendations.add(
-        RestaurantRecommendation(
-          restaurant: restaurant,
-          analysis: result.analysis,
-          score: 0.9 - (i * 0.1),
-          rank: i + 1,
-        ),
+      // Evaluate the analysis to get a real score
+      final evaluation = await evaluator.evaluate(
+        analysisText: result.analysis,
+        sourceReviews: reviews,
+        persona: _selectedPersona!,
       );
+
+      scoredRestaurants.add((
+        restaurant: restaurant,
+        analysis: result.analysis,
+        score: evaluation.overallScore,
+      ));
     }
+
+    // Sort by score (highest first) and take top 3
+    scoredRestaurants.sort((a, b) => b.score.compareTo(a.score));
+    final top3 = scoredRestaurants.take(3).toList();
+
+    final recommendations = top3.asMap().entries.map((entry) {
+      final index = entry.key;
+      final scored = entry.value;
+
+      return RestaurantRecommendation(
+        restaurant: scored.restaurant,
+        analysis: scored.analysis,
+        score: scored.score,
+        rank: index + 1,
+      );
+    }).toList();
 
     setState(() {
       _recommendations = recommendations;
@@ -620,6 +640,38 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 16),
 
         Card(
+          color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'What is an SOP?',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'SOP = Standard Operating Procedure. Think of it as a recipe for analyzing restaurants. '
+                  'Each SOP defines: how many reviews to read, which AI specialists to use (data analyst, '
+                  'service analyst), and how personalized the analysis should be. The system evolves these '
+                  '"recipes" to find the best configuration for your preferences.',
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Card(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -633,10 +685,10 @@ class _HomePageState extends State<HomePage> {
                   '2. **6-Dimensional Evaluation**: Each analysis is scored on '
                   'accuracy, completeness, helpfulness, conciseness, data-grounding, '
                   'and personalization\n\n'
-                  '3. **Genetic Evolution**: The system mutates its "SOP genome" '
+                  '3. **Genetic Evolution**: The system mutates SOPs '
                   '(number of reviews, which agents to use, personalization level) '
                   'to find better configurations\n\n'
-                  '4. **Pareto Optimization**: Finds multiple good solutions, '
+                  '4. **Pareto Optimization**: Finds multiple good SOPs, '
                   'not just one, balancing trade-offs across dimensions',
                 ),
                 const SizedBox(height: 16),
@@ -875,11 +927,25 @@ class _HomePageState extends State<HomePage> {
         'Generation $displayGeneration - Overall: ${log.bestScore.toStringAsFixed(3)}',
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(
-        'Pareto Frontier: ${log.paretoSize} SOPs | '
-        'Acc: ${log.bestResult.accuracy.toStringAsFixed(2)}, '
-        'Help: ${log.bestResult.helpfulness.toStringAsFixed(2)}, '
-        'Pers: ${log.bestResult.personalization.toStringAsFixed(2)}',
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${log.paretoSize} optimal SOPs found | '
+            'Acc: ${log.bestResult.accuracy.toStringAsFixed(2)}, '
+            'Help: ${log.bestResult.helpfulness.toStringAsFixed(2)}, '
+            'Pers: ${log.bestResult.personalization.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Found ${log.paretoSize} different configurations, each best at different trade-offs',
+            style: TextStyle(
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
       ),
       children: [
         Padding(
@@ -897,16 +963,54 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 16),
               ],
               Text(
-                'SOP Configuration:',
+                'Analysis Configuration (SOP):',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Review Count: ${log.sop.reviewRetrieverK}\n'
-                'Data Analyst: ${log.sop.useDataAnalyst ? "Enabled" : "Disabled"}\n'
-                'Service Analyst: ${log.sop.useServiceAnalyst ? "Enabled" : "Disabled"}\n'
-                'Personalization Level: ${log.sop.personalizationLevel}',
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSopConfigRow(
+                      context,
+                      icon: Icons.rate_review,
+                      label: 'Review Count',
+                      value: '${log.sop.reviewRetrieverK}',
+                      description: 'Number of reviews analyzed per restaurant',
+                    ),
+                    const Divider(height: 16),
+                    _buildSopConfigRow(
+                      context,
+                      icon: Icons.analytics,
+                      label: 'Data Analyst',
+                      value: log.sop.useDataAnalyst ? 'Enabled' : 'Disabled',
+                      description: 'Statistical analysis of review patterns',
+                      enabled: log.sop.useDataAnalyst,
+                    ),
+                    const Divider(height: 16),
+                    _buildSopConfigRow(
+                      context,
+                      icon: Icons.room_service,
+                      label: 'Service Analyst',
+                      value: log.sop.useServiceAnalyst ? 'Enabled' : 'Disabled',
+                      description: 'Deep dive into service quality aspects',
+                      enabled: log.sop.useServiceAnalyst,
+                    ),
+                    const Divider(height: 16),
+                    _buildSopConfigRow(
+                      context,
+                      icon: Icons.person,
+                      label: 'Personalization',
+                      value: log.sop.personalizationLevel,
+                      description: 'How much the analysis tailors to your preferences',
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1135,6 +1239,67 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSopConfigRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required String description,
+    bool? enabled,
+  }) {
+    final isEnabled = enabled ?? true;
+    final valueColor = enabled == null
+        ? Theme.of(context).textTheme.bodyMedium?.color
+        : (isEnabled
+            ? Colors.green[700]
+            : Colors.grey[600]);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: isEnabled ? Theme.of(context).colorScheme.primary : Colors.grey,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: valueColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
