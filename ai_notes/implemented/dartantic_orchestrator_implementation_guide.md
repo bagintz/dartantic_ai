@@ -1,0 +1,1134 @@
+# Dartantic Orchestrator - Implementation Guide
+
+## Quick Start for Implementation Agent
+
+**Goal**: Create `dartantic_orchestrator` package that extends dartantic_ai with graph-based, multi-agent workflow capabilities.
+
+**Context**: Builds on existing `StreamingOrchestrator` pattern in dartantic_ai, maintains full backward compatibility, enables complex multi-agent workflows like those described in self-improving agentic RAG systems.
+
+## 📦 Package Structure
+
+Create new package at: `packages/dartantic_orchestrator/`
+
+```
+dartantic_orchestrator/
+├── pubspec.yaml
+├── lib/
+│   ├── dartantic_orchestrator.dart           # Main exports
+│   ├── src/
+│   │   ├── interfaces/
+│   │   │   ├── graph_orchestrator.dart       # Core graph interfaces
+│   │   │   ├── workflow_node.dart            # Node abstraction
+│   │   │   ├── workflow_edge.dart            # Edge and routing
+│   │   │   └── graph_state.dart              # Multi-agent state
+│   │   ├── graph/
+│   │   │   ├── workflow_graph.dart           # Graph definition and builder
+│   │   │   ├── execution_engine.dart         # Graph execution logic
+│   │   │   └── graph_result.dart             # Result types
+│   │   ├── nodes/
+│   │   │   ├── agent_node.dart               # Dartantic AI agent wrapper
+│   │   │   ├── parallel_node.dart            # Parallel execution
+│   │   │   ├── conditional_node.dart         # Conditional routing
+│   │   │   ├── retrieval_node.dart           # RAG retrieval (bonus)
+│   │   │   └── database_node.dart            # SQL execution (bonus)
+│   │   └── state/
+│   │       ├── graph_state_impl.dart         # GraphState implementation
+│   │       └── node_context.dart             # Node execution context
+├── test/
+│   ├── unit/
+│   ├── integration/
+│   └── graph_examples/
+└── example/
+    ├── simple_workflow.dart
+    ├── parallel_agents.dart
+    └── self_improving_example.dart
+```
+
+## 🔧 Core Implementation Tasks
+
+### Phase 1: Foundation (Week 1-2)
+
+#### 1.1 Create Package Structure
+
+**File**: `pubspec.yaml`
+```yaml
+name: dartantic_orchestrator
+description: Graph-based workflow orchestration for multi-agent AI systems
+version: 0.1.0
+repository: https://github.com/csells/dartantic_ai
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  dartantic_interface:
+    path: ../dartantic_interface
+  dartantic_ai:
+    path: ../dartantic_ai
+  collection: ^1.19.1
+  logging: ^1.3.0
+  uuid: ^4.2.2
+
+dev_dependencies:
+  test: ^1.24.0
+  all_lint_rules_community: ^0.0.43
+```
+
+#### 1.2 Core Interfaces
+
+**File**: `lib/src/interfaces/graph_orchestrator.dart`
+```dart
+import 'dart:async';
+import 'package:dartantic_interface/dartantic_interface.dart';
+import '../graph/graph_result.dart';
+import '../graph/workflow_graph.dart';
+import '../state/graph_state_impl.dart';
+
+/// Core interface for graph-based workflow orchestration
+abstract interface class GraphOrchestrator {
+  /// Hint for orchestrator identification and selection
+  String get orchestratorHint;
+  
+  /// Initialize the graph orchestrator with shared state
+  void initialize(GraphState state);
+  
+  /// Execute the complete graph workflow
+  Stream<GraphIterationResult> executeGraph(
+    WorkflowGraph graph,
+    GraphState state,
+    Map<String, dynamic> input,
+  );
+  
+  /// Finalize after graph execution completes  
+  void finalize(GraphState state);
+}
+
+/// Result from graph execution iteration
+class GraphIterationResult {
+  /// Text output to stream to user
+  final String output;
+  
+  /// Messages generated during this iteration
+  final List<ChatMessage> messages;
+  
+  /// Whether execution should continue
+  final bool shouldContinue;
+  
+  /// Current execution status
+  final FinishReason finishReason;
+  
+  /// Metadata from this iteration
+  final Map<String, dynamic> metadata;
+  
+  /// Usage statistics
+  final LanguageModelUsage? usage;
+  
+  /// Unique identifier
+  final String id;
+  
+  const GraphIterationResult({
+    required this.output,
+    required this.messages,
+    required this.shouldContinue,
+    required this.finishReason,
+    required this.metadata,
+    required this.usage,
+    required this.id,
+  });
+}
+```
+
+**File**: `lib/src/interfaces/workflow_node.dart`
+```dart
+import 'dart:async';
+import 'package:dartantic_interface/dartantic_interface.dart';
+import '../state/node_context.dart';
+import '../state/graph_state_impl.dart';
+
+/// Node in the workflow graph
+abstract interface class WorkflowNode {
+  /// Unique identifier for this node
+  String get id;
+  
+  /// Node type (for debugging and introspection)
+  String get type;
+  
+  /// Human-readable description
+  String get description;
+  
+  /// Execute this node with the given context
+  Stream<NodeResult> execute(
+    NodeContext context,
+    GraphState state,
+  );
+  
+  /// Validate node configuration
+  bool validate();
+  
+  /// Get list of node IDs this node depends on
+  List<String> get dependencies;
+}
+
+/// Result from node execution
+class NodeResult {
+  /// Text output from node
+  final String output;
+  
+  /// Messages generated by node
+  final List<ChatMessage> messages;
+  
+  /// Structured data to share with other nodes
+  final Map<String, dynamic> data;
+  
+  /// Whether node completed successfully
+  final bool isSuccess;
+  
+  /// Error message if failed
+  final String? error;
+  
+  /// Metadata from node execution
+  final Map<String, dynamic> metadata;
+  
+  const NodeResult({
+    required this.output,
+    required this.messages,
+    required this.data,
+    required this.isSuccess,
+    this.error,
+    this.metadata = const {},
+  });
+  
+  const NodeResult.success({
+    required this.output,
+    required this.messages,
+    required this.data,
+    this.metadata = const {},
+  }) : isSuccess = true, error = null;
+  
+  const NodeResult.error({
+    required this.error,
+    this.output = '',
+    this.messages = const [],
+    this.data = const {},
+    this.metadata = const {},
+  }) : isSuccess = false;
+}
+```
+
+#### 1.3 Graph State Extension
+
+**File**: `lib/src/state/graph_state_impl.dart`
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:collection/collection.dart';
+
+/// Extended state for multi-agent graph workflows
+class GraphState extends StreamingState {
+  GraphState({
+    required super.conversationHistory,
+    required super.toolMap,
+    super.accumulator,
+    super.executor,
+  });
+
+  /// Shared data accessible by all nodes
+  final Map<String, dynamic> _sharedData = {};
+  
+  /// Node execution history
+  final List<NodeExecution> _executionHistory = [];
+  
+  /// Results from completed nodes
+  final Map<String, dynamic> _nodeResults = {};
+  
+  /// Currently executing nodes
+  final Set<String> _runningNodes = {};
+  
+  /// Failed node IDs
+  final Set<String> _failedNodes = {};
+  
+  // Public accessors
+  Map<String, dynamic> get sharedData => UnmodifiableMapView(_sharedData);
+  List<NodeExecution> get executionHistory => UnmodifiableListView(_executionHistory);
+  Set<String> get runningNodes => UnmodifiableSetView(_runningNodes);
+  Set<String> get failedNodes => UnmodifiableSetView(_failedNodes);
+  
+  /// Add shared data accessible by all nodes
+  void setSharedData(String key, dynamic value) {
+    _sharedData[key] = value;
+  }
+  
+  /// Get shared data
+  T? getSharedData<T>(String key) => _sharedData[key] as T?;
+  
+  /// Add result from a completed node
+  void addNodeResult(String nodeId, dynamic result) {
+    _nodeResults[nodeId] = result;
+    _runningNodes.remove(nodeId);
+  }
+  
+  /// Get result from a specific node
+  T? getNodeResult<T>(String nodeId) => _nodeResults[nodeId] as T?;
+  
+  /// Check if node has been executed successfully
+  bool hasNodeExecuted(String nodeId) => _nodeResults.containsKey(nodeId);
+  
+  /// Check if node is currently running
+  bool isNodeRunning(String nodeId) => _runningNodes.contains(nodeId);
+  
+  /// Check if node has failed
+  bool hasNodeFailed(String nodeId) => _failedNodes.contains(nodeId);
+  
+  /// Mark node as started
+  void markNodeStarted(String nodeId) {
+    _runningNodes.add(nodeId);
+  }
+  
+  /// Mark node as failed
+  void markNodeFailed(String nodeId, String error) {
+    _runningNodes.remove(nodeId);
+    _failedNodes.add(nodeId);
+    _executionHistory.add(NodeExecution(
+      nodeId: nodeId,
+      startTime: DateTime.now(),
+      endTime: DateTime.now(),
+      success: false,
+      error: error,
+    ));
+  }
+  
+  /// Record successful node execution
+  void recordNodeExecution(String nodeId, Duration duration, {Map<String, dynamic>? metadata}) {
+    _executionHistory.add(NodeExecution(
+      nodeId: nodeId,
+      startTime: DateTime.now().subtract(duration),
+      endTime: DateTime.now(),
+      success: true,
+      metadata: metadata ?? {},
+    ));
+  }
+}
+
+/// Record of node execution
+class NodeExecution {
+  final String nodeId;
+  final DateTime startTime;
+  final DateTime endTime;
+  final bool success;
+  final String? error;
+  final Map<String, dynamic> metadata;
+  
+  const NodeExecution({
+    required this.nodeId,
+    required this.startTime,
+    required this.endTime,
+    required this.success,
+    this.error,
+    this.metadata = const {},
+  });
+  
+  Duration get duration => endTime.difference(startTime);
+}
+```
+
+### Phase 2: Core Implementation (Week 2-3)
+
+#### 2.1 Workflow Graph
+
+**File**: `lib/src/graph/workflow_graph.dart`
+```dart
+import 'package:collection/collection.dart';
+import '../interfaces/workflow_node.dart';
+import '../interfaces/workflow_edge.dart';
+
+/// Defines a workflow graph with nodes and edges
+class WorkflowGraph {
+  final Map<String, WorkflowNode> _nodes = {};
+  final Map<String, List<WorkflowEdge>> _edges = {};
+  final String? _entryPoint;
+  
+  WorkflowGraph._(this._entryPoint);
+  
+  /// Get all nodes in the graph
+  Map<String, WorkflowNode> get nodes => UnmodifiableMapView(_nodes);
+  
+  /// Get all edges from a node
+  List<WorkflowEdge> getEdges(String nodeId) => 
+      UnmodifiableListView(_edges[nodeId] ?? []);
+  
+  /// Get entry point node ID
+  String? get entryPoint => _entryPoint;
+  
+  /// Get node by ID
+  WorkflowNode? getNode(String id) => _nodes[id];
+  
+  /// Validate graph structure
+  bool validate() {
+    // Check all nodes are valid
+    for (final node in _nodes.values) {
+      if (!node.validate()) return false;
+    }
+    
+    // Check for cycles (if needed for DAG workflows)
+    return _validateNoCycles();
+  }
+  
+  /// Check for circular dependencies
+  bool _validateNoCycles() {
+    final visited = <String>{};
+    final recursionStack = <String>{};
+    
+    for (final nodeId in _nodes.keys) {
+      if (!visited.contains(nodeId)) {
+        if (_hasCycleDFS(nodeId, visited, recursionStack)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  
+  bool _hasCycleDFS(String nodeId, Set<String> visited, Set<String> recursionStack) {
+    visited.add(nodeId);
+    recursionStack.add(nodeId);
+    
+    for (final edge in getEdges(nodeId)) {
+      final neighbor = edge.toNode;
+      if (!visited.contains(neighbor)) {
+        if (_hasCycleDFS(neighbor, visited, recursionStack)) {
+          return true;
+        }
+      } else if (recursionStack.contains(neighbor)) {
+        return true;
+      }
+    }
+    
+    recursionStack.remove(nodeId);
+    return false;
+  }
+  
+  /// Create a workflow graph builder
+  static WorkflowGraphBuilder builder() => WorkflowGraphBuilder();
+}
+
+/// Builder for creating workflow graphs
+class WorkflowGraphBuilder {
+  final Map<String, WorkflowNode> _nodes = {};
+  final Map<String, List<WorkflowEdge>> _edges = {};
+  String? _entryPoint;
+  
+  /// Add a node to the graph
+  WorkflowGraphBuilder addNode(String id, WorkflowNode node) {
+    if (_nodes.containsKey(id)) {
+      throw ArgumentError('Node with id "$id" already exists');
+    }
+    _nodes[id] = node;
+    _edges[id] = [];
+    
+    // First node becomes entry point by default
+    _entryPoint ??= id;
+    
+    return this;
+  }
+  
+  /// Add an edge between nodes
+  WorkflowGraphBuilder addEdge(
+    String fromId, 
+    String toId, {
+    EdgeCondition? condition,
+    Map<String, dynamic>? metadata,
+  }) {
+    if (!_nodes.containsKey(fromId)) {
+      throw ArgumentError('Source node "$fromId" does not exist');
+    }
+    if (!_nodes.containsKey(toId)) {
+      throw ArgumentError('Target node "$toId" does not exist');
+    }
+    
+    final edge = WorkflowEdge(
+      fromNode: fromId,
+      toNode: toId,
+      condition: condition,
+      metadata: metadata ?? {},
+    );
+    
+    _edges[fromId]!.add(edge);
+    return this;
+  }
+  
+  /// Set explicit entry point
+  WorkflowGraphBuilder setEntryPoint(String nodeId) {
+    if (!_nodes.containsKey(nodeId)) {
+      throw ArgumentError('Entry point node "$nodeId" does not exist');
+    }
+    _entryPoint = nodeId;
+    return this;
+  }
+  
+  /// Build the workflow graph
+  WorkflowGraph build() {
+    if (_nodes.isEmpty) {
+      throw StateError('Cannot build empty graph');
+    }
+    
+    final graph = WorkflowGraph._(_entryPoint);
+    graph._nodes.addAll(_nodes);
+    graph._edges.addAll(_edges);
+    
+    if (!graph.validate()) {
+      throw StateError('Invalid graph structure');
+    }
+    
+    return graph;
+  }
+}
+```
+
+#### 2.2 Basic Node Types
+
+**File**: `lib/src/nodes/agent_node.dart`
+```dart
+import 'dart:async';
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:uuid/uuid.dart';
+import '../interfaces/workflow_node.dart';
+import '../state/node_context.dart';
+import '../state/graph_state_impl.dart';
+
+/// Node that wraps a dartantic_ai Agent
+class AgentNode implements WorkflowNode {
+  @override
+  final String id;
+  
+  final Agent _agent;
+  final String _prompt;
+  final List<String> _dependencies;
+  
+  AgentNode(
+    this._agent, {
+    required String prompt,
+    String? id,
+    List<String> dependencies = const [],
+  }) : id = id ?? const Uuid().v4(),
+       _prompt = prompt,
+       _dependencies = dependencies;
+  
+  @override
+  String get type => 'agent';
+  
+  @override
+  String get description => 'Agent: ${_agent.displayName} - $_prompt';
+  
+  @override
+  List<String> get dependencies => List.unmodifiable(_dependencies);
+  
+  @override
+  Stream<NodeResult> execute(NodeContext context, GraphState state) async* {
+    try {
+      // Build context-aware prompt
+      final contextualPrompt = _buildPrompt(context, state);
+      
+      // Create conversation history
+      final history = [
+        ChatMessage.system('You are a specialist agent in a multi-agent workflow.'),
+        ...context.conversationHistory,
+      ];
+      
+      // Execute agent
+      final result = await _agent.send(
+        contextualPrompt,
+        history: history,
+      );
+      
+      yield NodeResult.success(
+        output: result.output,
+        messages: result.messages,
+        data: {
+          'agent_result': result.output,
+          'finish_reason': result.finishReason.toString(),
+          'usage': result.usage?.toJson() ?? {},
+        },
+        metadata: {
+          'agent_name': _agent.displayName,
+          'prompt': _prompt,
+          'execution_time': DateTime.now().toIso8601String(),
+        },
+      );
+      
+    } catch (error) {
+      yield NodeResult.error(
+        error: 'Agent execution failed: $error',
+        metadata: {
+          'agent_name': _agent.displayName,
+          'error_type': error.runtimeType.toString(),
+        },
+      );
+    }
+  }
+  
+  String _buildPrompt(NodeContext context, GraphState state) {
+    final buffer = StringBuffer(_prompt);
+    
+    // Add context from previous nodes
+    final dependencyResults = <String>[];
+    for (final depId in dependencies) {
+      final result = state.getNodeResult<String>(depId);
+      if (result != null) {
+        dependencyResults.add('From $depId: $result');
+      }
+    }
+    
+    if (dependencyResults.isNotEmpty) {
+      buffer.write('\n\nContext from previous steps:\n');
+      buffer.write(dependencyResults.join('\n'));
+    }
+    
+    // Add shared data if relevant
+    final sharedContext = state.getSharedData<String>('global_context');
+    if (sharedContext != null) {
+      buffer.write('\n\nShared context: $sharedContext');
+    }
+    
+    return buffer.toString();
+  }
+  
+  @override
+  bool validate() {
+    return _prompt.isNotEmpty;
+  }
+}
+```
+
+#### 2.3 Graph Execution Engine
+
+**File**: `lib/src/graph/execution_engine.dart`
+```dart
+import 'dart:async';
+import 'package:logging/logging.dart';
+import 'package:collection/collection.dart';
+import '../interfaces/graph_orchestrator.dart';
+import '../interfaces/workflow_node.dart';
+import '../state/graph_state_impl.dart';
+import '../state/node_context.dart';
+import 'workflow_graph.dart';
+import 'graph_result.dart';
+
+/// Default implementation of graph orchestrator
+class DefaultGraphOrchestrator implements GraphOrchestrator {
+  static final Logger _logger = Logger('dartantic.orchestrator.graph');
+  
+  @override
+  String get orchestratorHint => 'default-graph';
+  
+  @override
+  void initialize(GraphState state) {
+    _logger.info('Initializing graph orchestrator');
+    state.setSharedData('orchestrator', orchestratorHint);
+    state.setSharedData('start_time', DateTime.now());
+  }
+  
+  @override
+  Stream<GraphIterationResult> executeGraph(
+    WorkflowGraph graph,
+    GraphState state,
+    Map<String, dynamic> input,
+  ) async* {
+    _logger.info('Starting graph execution with ${graph.nodes.length} nodes');
+    
+    // Set input data in shared state
+    for (final entry in input.entries) {
+      state.setSharedData('input_${entry.key}', entry.value);
+    }
+    
+    // Get execution order (topological sort)
+    final executionOrder = _getExecutionOrder(graph);
+    _logger.fine('Execution order: ${executionOrder.join(' -> ')}');
+    
+    // Execute nodes in order
+    for (final nodeId in executionOrder) {
+      final node = graph.getNode(nodeId)!;
+      
+      // Wait for dependencies
+      await _waitForDependencies(node, state);
+      
+      // Execute node
+      yield* _executeNode(node, graph, state);
+    }
+    
+    // Final result
+    yield GraphIterationResult(
+      output: _buildFinalOutput(state),
+      messages: [],
+      shouldContinue: false,
+      finishReason: FinishReason.stop,
+      metadata: _buildFinalMetadata(state),
+      usage: null,
+      id: 'final',
+    );
+  }
+  
+  @override
+  void finalize(GraphState state) {
+    final endTime = DateTime.now();
+    final startTime = state.getSharedData<DateTime>('start_time')!;
+    final duration = endTime.difference(startTime);
+    
+    _logger.info(
+      'Graph execution completed in ${duration.inMilliseconds}ms. '
+      'Executed ${state.executionHistory.length} nodes.',
+    );
+    
+    state.setSharedData('end_time', endTime);
+    state.setSharedData('total_duration', duration);
+  }
+  
+  /// Get topological execution order
+  List<String> _getExecutionOrder(WorkflowGraph graph) {
+    final visited = <String>{};
+    final stack = <String>[];
+    
+    void dfsVisit(String nodeId) {
+      if (visited.contains(nodeId)) return;
+      visited.add(nodeId);
+      
+      // Visit dependencies first
+      final node = graph.getNode(nodeId)!;
+      for (final depId in node.dependencies) {
+        dfsVisit(depId);
+      }
+      
+      stack.add(nodeId);
+    }
+    
+    // Start from entry point
+    final entryPoint = graph.entryPoint;
+    if (entryPoint != null) {
+      dfsVisit(entryPoint);
+    }
+    
+    // Visit any remaining nodes
+    for (final nodeId in graph.nodes.keys) {
+      dfsVisit(nodeId);
+    }
+    
+    return stack;
+  }
+  
+  /// Wait for node dependencies to complete
+  Future<void> _waitForDependencies(WorkflowNode node, GraphState state) async {
+    for (final depId in node.dependencies) {
+      while (!state.hasNodeExecuted(depId) && !state.hasNodeFailed(depId)) {
+        await Future.delayed(const Duration(milliseconds: 10));
+      }
+      
+      if (state.hasNodeFailed(depId)) {
+        throw StateError('Dependency node $depId failed');
+      }
+    }
+  }
+  
+  /// Execute a single node
+  Stream<GraphIterationResult> _executeNode(
+    WorkflowNode node,
+    WorkflowGraph graph,
+    GraphState state,
+  ) async* {
+    _logger.fine('Executing node: ${node.id} (${node.type})');
+    
+    state.markNodeStarted(node.id);
+    final startTime = DateTime.now();
+    
+    try {
+      final context = NodeContext(
+        nodeId: node.id,
+        conversationHistory: state.conversationHistory,
+        sharedData: Map.from(state.sharedData),
+      );
+      
+      await for (final result in node.execute(context, state)) {
+        if (result.isSuccess) {
+          // Store result and mark complete
+          state.addNodeResult(node.id, result.data);
+          
+          final duration = DateTime.now().difference(startTime);
+          state.recordNodeExecution(
+            node.id, 
+            duration,
+            metadata: result.metadata,
+          );
+          
+          _logger.info('Node ${node.id} completed successfully in ${duration.inMilliseconds}ms');
+          
+          // Yield result
+          yield GraphIterationResult(
+            output: result.output,
+            messages: result.messages,
+            shouldContinue: true,
+            finishReason: FinishReason.unspecified,
+            metadata: {
+              'node_id': node.id,
+              'node_type': node.type,
+              'execution_time_ms': duration.inMilliseconds,
+              ...result.metadata,
+            },
+            usage: null,
+            id: node.id,
+          );
+        } else {
+          // Mark as failed
+          state.markNodeFailed(node.id, result.error!);
+          
+          _logger.warning('Node ${node.id} failed: ${result.error}');
+          
+          yield GraphIterationResult(
+            output: '',
+            messages: [],
+            shouldContinue: false,
+            finishReason: FinishReason.error,
+            metadata: {
+              'node_id': node.id,
+              'node_type': node.type,
+              'error': result.error,
+              ...result.metadata,
+            },
+            usage: null,
+            id: node.id,
+          );
+          
+          throw StateError('Node ${node.id} failed: ${result.error}');
+        }
+      }
+    } catch (error) {
+      state.markNodeFailed(node.id, error.toString());
+      rethrow;
+    }
+  }
+  
+  String _buildFinalOutput(GraphState state) {
+    final buffer = StringBuffer('Graph execution completed.\n\n');
+    
+    for (final execution in state.executionHistory) {
+      if (execution.success) {
+        buffer.writeln('✅ ${execution.nodeId}: ${execution.duration.inMilliseconds}ms');
+      }
+    }
+    
+    return buffer.toString();
+  }
+  
+  Map<String, dynamic> _buildFinalMetadata(GraphState state) {
+    return {
+      'total_nodes': state.executionHistory.length,
+      'successful_nodes': state.executionHistory.where((e) => e.success).length,
+      'failed_nodes': state.failedNodes.length,
+      'execution_history': state.executionHistory.map((e) => {
+        'node_id': e.nodeId,
+        'duration_ms': e.duration.inMilliseconds,
+        'success': e.success,
+        if (e.error != null) 'error': e.error,
+      }).toList(),
+    };
+  }
+}
+```
+
+### Phase 3: Integration with Dartantic AI (Week 3-4)
+
+#### 3.1 Bridge to StreamingOrchestrator
+
+**File**: `dartantic_ai/lib/src/agent/orchestrators/graph_streaming_orchestrator.dart`
+```dart
+import 'dart:async';
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+import '../streaming_state.dart';
+
+/// Bridge between graph orchestration and streaming orchestration
+class GraphStreamingOrchestrator implements StreamingOrchestrator {
+  final GraphOrchestrator _graphOrchestrator;
+  final WorkflowGraph _graph;
+  
+  const GraphStreamingOrchestrator(this._graphOrchestrator, this._graph);
+  
+  @override
+  String get providerHint => 'graph-${_graphOrchestrator.orchestratorHint}';
+  
+  @override
+  void initialize(StreamingState state) {
+    // Convert StreamingState to GraphState
+    final graphState = _createGraphState(state);
+    _graphOrchestrator.initialize(graphState);
+    
+    // Store graph state reference in original state
+    state.metadata['graph_state'] = graphState;
+  }
+  
+  @override
+  Stream<StreamingIterationResult> processIteration(
+    ChatModel model,
+    StreamingState state, {
+    JsonSchema? outputSchema,
+  }) async* {
+    final graphState = state.metadata['graph_state'] as GraphState;
+    
+    // Execute graph and convert results to streaming format
+    await for (final result in _graphOrchestrator.executeGraph(
+      _graph,
+      graphState,
+      {
+        'model': model,
+        'outputSchema': outputSchema,
+        'original_prompt': state.conversationHistory.last.content,
+      },
+    )) {
+      yield StreamingIterationResult(
+        output: result.output,
+        messages: result.messages,
+        shouldContinue: result.shouldContinue,
+        finishReason: result.finishReason,
+        metadata: result.metadata,
+        usage: result.usage,
+        id: result.id,
+      );
+    }
+  }
+  
+  @override
+  void finalize(StreamingState state) {
+    final graphState = state.metadata['graph_state'] as GraphState;
+    _graphOrchestrator.finalize(graphState);
+  }
+  
+  GraphState _createGraphState(StreamingState state) {
+    return GraphState(
+      conversationHistory: state.conversationHistory,
+      toolMap: state.toolMap,
+      accumulator: state.accumulator,
+      executor: state.executor,
+    );
+  }
+}
+```
+
+#### 3.2 Agent Extension
+
+**File**: `dartantic_ai/lib/src/agent/graph_agent_extension.dart`
+```dart
+import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+import 'orchestrators/graph_streaming_orchestrator.dart';
+import 'agent.dart';
+
+extension GraphAgentExtension on Agent {
+  /// Create an agent with graph orchestration capabilities
+  static Agent withGraphOrchestration(
+    String model, {
+    required WorkflowGraph graph,
+    GraphOrchestrator? orchestrator,
+    List<Tool>? tools,
+    double? temperature,
+    String? displayName,
+    ChatModelOptions? chatModelOptions,
+    EmbeddingsModelOptions? embeddingsModelOptions,
+  }) {
+    final graphOrchestrator = orchestrator ?? const DefaultGraphOrchestrator();
+    final graphStreamingOrchestrator = GraphStreamingOrchestrator(
+      graphOrchestrator, 
+      graph,
+    );
+    
+    return Agent._withCustomOrchestrator(
+      model,
+      orchestrator: graphStreamingOrchestrator,
+      tools: tools,
+      temperature: temperature,
+      displayName: displayName,
+      chatModelOptions: chatModelOptions,
+      embeddingsModelOptions: embeddingsModelOptions,
+    );
+  }
+}
+
+// Add to Agent class:
+Agent._withCustomOrchestrator(
+  String model, {
+  required StreamingOrchestrator orchestrator,
+  List<Tool>? tools,
+  double? temperature,
+  String? displayName,
+  this.chatModelOptions,
+  this.embeddingsModelOptions,
+}) {
+  // Same initialization as regular Agent constructor
+  // but stores custom orchestrator for selection
+  _customOrchestrator = orchestrator;
+}
+
+StreamingOrchestrator? _customOrchestrator;
+
+// Modify orchestrator selection in Agent:
+StreamingOrchestrator _selectOrchestrator({JsonSchema? outputSchema}) {
+  // Use custom orchestrator if provided
+  if (_customOrchestrator != null) {
+    return _customOrchestrator!;
+  }
+  
+  // Existing selection logic...
+}
+```
+
+## 🧪 Testing Strategy
+
+### Unit Tests
+
+**File**: `test/unit/workflow_graph_test.dart`
+```dart
+import 'package:test/test.dart';
+import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+
+void main() {
+  group('WorkflowGraph', () {
+    test('builds simple graph', () {
+      final graph = WorkflowGraph.builder()
+        .addNode('node1', MockNode('node1'))
+        .addNode('node2', MockNode('node2'))
+        .addEdge('node1', 'node2')
+        .build();
+      
+      expect(graph.nodes.length, equals(2));
+      expect(graph.getEdges('node1').length, equals(1));
+      expect(graph.entryPoint, equals('node1'));
+    });
+    
+    test('validates against cycles', () {
+      expect(
+        () => WorkflowGraph.builder()
+          .addNode('a', MockNode('a'))
+          .addNode('b', MockNode('b'))
+          .addEdge('a', 'b')
+          .addEdge('b', 'a')  // Creates cycle
+          .build(),
+        throwsStateError,
+      );
+    });
+  });
+}
+```
+
+### Integration Tests
+
+**File**: `test/integration/agent_integration_test.dart`
+```dart
+import 'package:test/test.dart';
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+
+void main() {
+  group('Agent Integration', () {
+    test('executes simple workflow', () async {
+      final workflow = WorkflowGraph.builder()
+        .addNode('agent1', AgentNode(
+          Agent('openai'),
+          prompt: 'Analyze the input',
+        ))
+        .build();
+      
+      final agent = Agent.withGraphOrchestration(
+        'openai',
+        graph: workflow,
+      );
+      
+      final result = await agent.send('Hello world');
+      
+      expect(result.output, isNotEmpty);
+      expect(result.finishReason, equals(FinishReason.stop));
+    });
+  });
+}
+```
+
+## 📝 Examples
+
+**File**: `example/simple_workflow.dart`
+```dart
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_orchestrator/dartantic_orchestrator.dart';
+
+void main() async {
+  // Create a simple two-agent workflow
+  final workflow = WorkflowGraph.builder()
+    .addNode('researcher', AgentNode(
+      Agent('openai'),
+      prompt: 'Research the topic thoroughly',
+    ))
+    .addNode('summarizer', AgentNode(
+      Agent('anthropic'),
+      prompt: 'Summarize the research findings',
+      dependencies: ['researcher'],
+    ))
+    .addEdge('researcher', 'summarizer')
+    .build();
+  
+  // Create graph-enabled agent
+  final agent = Agent.withGraphOrchestration(
+    'openai',
+    graph: workflow,
+  );
+  
+  // Execute workflow
+  print('Starting workflow...');
+  final result = await agent.send('Research quantum computing trends');
+  print('Final result: ${result.output}');
+}
+```
+
+## 📋 Implementation Checklist
+
+### Phase 1: Foundation ✅
+- [ ] Create package structure and dependencies
+- [ ] Implement core interfaces (GraphOrchestrator, WorkflowNode)
+- [ ] Create GraphState extension of StreamingState
+- [ ] Build WorkflowGraph and builder
+- [ ] Write basic unit tests
+
+### Phase 2: Core Nodes ✅  
+- [ ] Implement AgentNode (wraps dartantic_ai Agent)
+- [ ] Create execution engine (DefaultGraphOrchestrator)
+- [ ] Add parallel execution node
+- [ ] Add conditional routing node
+- [ ] Write integration tests
+
+### Phase 3: Integration ✅
+- [ ] Create GraphStreamingOrchestrator bridge
+- [ ] Extend Agent with withGraphOrchestration factory
+- [ ] Add orchestrator selection logic
+- [ ] Test end-to-end workflows
+- [ ] Create comprehensive examples
+
+### Phase 4: Polish & Documentation ✅
+- [ ] Add detailed logging and debugging
+- [ ] Create performance monitoring
+- [ ] Write comprehensive documentation
+- [ ] Add error handling and recovery
+- [ ] Package for distribution
+
+## 🚀 Success Criteria
+
+**Minimum Viable Product (MVP)**:
+1. ✅ Create multi-agent workflows with sequential execution
+2. ✅ Share data between agents via GraphState
+3. ✅ Maintain full backward compatibility with existing Agent API
+4. ✅ Provide simple, intuitive graph building API
+
+**Stretch Goals**:
+1. 🎯 Add parallel execution capabilities
+2. 🎯 Support conditional routing and loops
+3. 🎯 Include basic RAG and database nodes
+4. 🎯 Performance monitoring and visualization hooks
+
+This implementation enables the complex multi-agent workflows described in the self-improving agentic RAG paper while maintaining the clean, extensible architecture that makes dartantic_ai excellent.
+
+<function_calls>
+<invoke name="TodoWrite">
+<parameter name="todos">[{"content": "Quick scan of uncovered gaps for potential easy wins", "status": "completed", "activeForm": "Scanning uncovered gaps for opportunities"}, {"content": "Create future ideas document for complementary packages", "status": "completed", "activeForm": "Creating future ideas document"}, {"content": "Create focused implementation document for dartantic_orchestrator", "status": "completed", "activeForm": "Creating implementation document"}]
