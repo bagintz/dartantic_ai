@@ -83,6 +83,10 @@ class _HomePageState extends State<HomePage> {
   // User inputs
   UserPersona? _selectedPersona;
 
+  // Configuration
+  double _populationSize = 6;
+  double _maxGenerations = 3;
+
   // Data
   List<Restaurant> _restaurants = [];
   Map<String, List<Review>> _reviewsByRestaurant = {};
@@ -110,6 +114,8 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _zipCodeController.clear();
       _selectedPersona = null;
+      _populationSize = 6;
+      _maxGenerations = 3;
       _restaurants = [];
       _reviewsByRestaurant = {};
       _evolutionHistory.clear();
@@ -194,8 +200,8 @@ class _HomePageState extends State<HomePage> {
           evaluator: evaluator,
           mutationStrategy: mutationStrategy,
           selectionStrategy: ParetoSelection(),
-          populationSize: 6,
-          eliteCount: 2,
+          populationSize: _populationSize.toInt(),
+          eliteCount: (_populationSize / 3).ceil(),
         );
 
         _currentPopulation = engine.initializePopulation();
@@ -237,8 +243,8 @@ class _HomePageState extends State<HomePage> {
         evaluator: evaluator,
         mutationStrategy: mutationStrategy,
         selectionStrategy: ParetoSelection(),
-        populationSize: 6,
-        eliteCount: 2,
+        populationSize: _populationSize.toInt(),
+        eliteCount: (_populationSize / 3).ceil(),
       );
 
       final cycleResult = await engine.evolve(
@@ -280,8 +286,8 @@ class _HomePageState extends State<HomePage> {
         _isRunning = false;
       });
 
-      // Auto-generate recommendations after 3 generations
-      if (_evolutionHistory.length >= 3 && _recommendations.isEmpty) {
+      // Auto-generate recommendations after reaching max generations
+      if (_evolutionHistory.length >= _maxGenerations.toInt() && _recommendations.isEmpty) {
         _createFinalRecommendations();
       }
     } catch (e) {
@@ -624,12 +630,20 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 8),
                     Slider(
-                      value: 6,
+                      value: _populationSize,
                       min: 3,
                       max: 12,
                       divisions: 9,
-                      label: '6 SOPs per generation',
-                      onChanged: null, // TODO: Wire up configuration
+                      label: '${_populationSize.toInt()} SOPs per generation',
+                      onChanged: (value) {
+                        setState(() {
+                          _populationSize = value;
+                        });
+                      },
+                    ),
+                    Text(
+                      '${_populationSize.toInt()} SOPs per generation',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -638,12 +652,20 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 8),
                     Slider(
-                      value: 3,
+                      value: _maxGenerations,
                       min: 1,
                       max: 10,
                       divisions: 9,
-                      label: '3 generations',
-                      onChanged: null, // TODO: Wire up configuration
+                      label: '${_maxGenerations.toInt()} generations',
+                      onChanged: (value) {
+                        setState(() {
+                          _maxGenerations = value;
+                        });
+                      },
+                    ),
+                    Text(
+                      '${_maxGenerations.toInt()} generations',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
                     const Text(
