@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'src/config/restaurant_analysis_sop.dart';
 import 'src/data/data_provider.dart';
 import 'src/evaluation/evaluation_result.dart';
@@ -11,10 +12,7 @@ import 'src/models/restaurant.dart';
 import 'src/models/review.dart';
 import 'src/models/user_persona.dart';
 import 'src/workflows/restaurant_analysis_workflow.dart';
-import 'src/ui/stakeholder_intro_screen.dart';
-import 'src/ui/process_diagram_screen.dart';
-import 'src/ui/evolution_journey_screen.dart';
-import 'src/ui/stakeholder_report_screen.dart';
+import 'src/ui/workflow_diagram.dart';
 
 void main() {
   runApp(const MyApp());
@@ -43,12 +41,46 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+class EvolutionJourneyLog {
+  EvolutionJourneyLog({
+    required this.generation,
+    required this.bestScore,
+    required this.paretoSize,
+    required this.bestResult,
+    required this.analysisText,
+    required this.sop,
+    this.mutationDescription,
+  });
+
+  final int generation;
+  final double bestScore;
+  final int paretoSize;
+  final EvaluationResult bestResult;
+  final String analysisText;
+  final RestaurantAnalysisSOP sop;
+  final String? mutationDescription;
+}
+
+class RestaurantRecommendation {
+  RestaurantRecommendation({
+    required this.restaurant,
+    required this.analysis,
+    required this.score,
+    required this.rank,
+  });
+
+  final Restaurant restaurant;
+  final String analysis;
+  final double score;
+  final int rank;
+}
+
 class _HomePageState extends State<HomePage> {
-  int _currentStep = 0;
   final _dataProvider = DataProvider(seed: 42);
+  final _zipCodeController = TextEditingController();
+  final _scrollController = ScrollController();
 
   // User inputs
-  String? _zipCode;
   UserPersona? _selectedPersona;
 
   // Data
@@ -58,91 +90,64 @@ class _HomePageState extends State<HomePage> {
   // Evolution state
   final List<EvolutionJourneyLog> _evolutionHistory = [];
   bool _isRunning = false;
-  String _status = 'Ready';
+  String _status = 'Ready to start';
   Map<String, RestaurantAnalysisSOP> _currentPopulation = {};
 
   // Final results
   List<RestaurantRecommendation> _recommendations = [];
 
+  // UI state
+  bool _hasStarted = false;
+
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Intelligent Restaurant Recommendations'),
-      ),
-      body: _buildCurrentStep(),
-    );
+  void dispose() {
+    _zipCodeController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  Widget _buildCurrentStep() {
-    switch (_currentStep) {
-      case 0:
-        return StakeholderIntroScreen(
-          personas: _dataProvider.getSamplePersonas(),
-          onContinue: _handleIntroComplete,
-        );
-      case 1:
-        return ProcessDiagramScreen(
-          onContinue: _handleDiagramComplete,
-        );
-      case 2:
-        return EvolutionJourneyScreen(
-          evolutionHistory: _evolutionHistory,
-          isRunning: _isRunning,
-          status: _status,
-          onProcessMore: _runEvolutionCycle,
-          onFinish: _handleEvolutionComplete,
-        );
-      case 3:
-        return StakeholderReportScreen(
-          recommendations: _recommendations,
-          persona: _selectedPersona!,
-          zipCode: _zipCode!,
-          generationsProcessed: _evolutionHistory.length,
-          onRestart: _handleRestart,
-        );
-      default:
-        return const Center(child: Text('Unknown step'));
-    }
-  }
-
-  void _handleIntroComplete(String zipCode, UserPersona persona) {
+  void _startOver() {
     setState(() {
-      _zipCode = zipCode;
-      _selectedPersona = persona;
-      _currentStep = 1;
-    });
-  }
-
-  void _handleDiagramComplete() {
-    setState(() {
-      _currentStep = 2;
-    });
-    // Start first evolution cycle automatically
-    _runEvolutionCycle();
-  }
-
-  void _handleEvolutionComplete() {
-    // Create final recommendations from evolution results
-    _createFinalRecommendations();
-    setState(() {
-      _currentStep = 3;
-    });
-  }
-
-  void _handleRestart() {
-    setState(() {
-      _currentStep = 0;
-      _zipCode = null;
+      _zipCodeController.clear();
       _selectedPersona = null;
       _restaurants = [];
       _reviewsByRestaurant = {};
       _evolutionHistory.clear();
       _currentPopulation = {};
       _recommendations = [];
-      _status = 'Ready';
+      _status = 'Ready to start';
+      _hasStarted = false;
+      _isRunning = false;
     });
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _handleStart() {
+    final zipCode = _zipCodeController.text.trim();
+    if (zipCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a zip code')),
+      );
+      return;
+    }
+
+    if (_selectedPersona == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a diner type')),
+      );
+      return;
+    }
+
+    setState(() {
+      _hasStarted = true;
+    });
+
+    // Start first evolution cycle automatically
+    _runEvolutionCycle();
   }
 
   Future<void> _runEvolutionCycle() async {
@@ -175,7 +180,6 @@ class _HomePageState extends State<HomePage> {
         );
 
         final agent = Agent(modelString);
-        final workflow = RestaurantAnalysisWorkflow(agent: agent);
         final evaluator = RestaurantEvaluator(agent: agent);
 
         final mutationStrategy = CompositeMutation(
@@ -272,6 +276,11 @@ class _HomePageState extends State<HomePage> {
         _status = 'Generation ${_evolutionHistory.length} complete!';
         _isRunning = false;
       });
+
+      // Auto-generate recommendations after 3 generations
+      if (_evolutionHistory.length >= 3 && _recommendations.isEmpty) {
+        _createFinalRecommendations();
+      }
     } catch (e) {
       setState(() {
         _status = 'Error: $e';
@@ -291,10 +300,10 @@ class _HomePageState extends State<HomePage> {
       _status = 'Data source: ${dataSource.name}. Loading restaurants...';
     });
 
-    _restaurants = await _dataProvider.loadRestaurantsByZipCode(_zipCode!);
+    _restaurants = await _dataProvider.loadRestaurantsByZipCode(_zipCodeController.text.trim());
 
     if (_restaurants.isEmpty) {
-      throw Exception('No restaurants found in zip code $_zipCode');
+      throw Exception('No restaurants found in zip code ${_zipCodeController.text}');
     }
 
     // Take top 10 by rating
@@ -347,13 +356,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _createFinalRecommendations() {
-    // Use the best evolved SOP to analyze all restaurants
-    // For now, create mock recommendations from top 3 restaurants
+    // Use top 3 restaurants with the evolved analysis
     _recommendations = _restaurants.take(3).toList().asMap().entries.map((entry) {
       final index = entry.key;
       final restaurant = entry.value;
 
-      // Get the last analysis if available, or create generic one
+      // Get the last analysis if available
       final analysis = _evolutionHistory.isNotEmpty
           ? _evolutionHistory.last.analysisText
           : 'Great restaurant with excellent reviews.';
@@ -361,9 +369,638 @@ class _HomePageState extends State<HomePage> {
       return RestaurantRecommendation(
         restaurant: restaurant,
         analysis: analysis,
-        score: 0.9 - (index * 0.1), // Simple mock scoring
+        score: 0.9 - (index * 0.1),
         rank: index + 1,
       );
     }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: const Text('Intelligent Restaurant Recommendations'),
+        actions: [
+          if (_hasStarted)
+            TextButton.icon(
+              onPressed: _startOver,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Start Over'),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+            ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildIntroSection(),
+            const Divider(height: 48),
+            _buildProcessSection(),
+            if (_hasStarted) ...[
+              const Divider(height: 48),
+              _buildEvolutionSection(),
+            ],
+            if (_recommendations.isNotEmpty) ...[
+              const Divider(height: 48),
+              _buildRecommendationsSection(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIntroSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '🍽️ Welcome to Intelligent Restaurant Recommendations',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 24),
+
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Why This Tool?',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Finding the perfect restaurant is hard. Traditional recommendation '
+                  'systems give you generic ratings that don\'t match YOUR preferences.\n\n'
+                  'This tool uses advanced AI to:\n'
+                  '• Analyze thousands of reviews through multiple lenses\n'
+                  '• Understand YOUR unique dining preferences\n'
+                  '• Self-improve its analysis process in real-time\n'
+                  '• Provide personalized, evidence-based recommendations',
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        Text(
+          'Tell Us About You',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+
+        TextField(
+          controller: _zipCodeController,
+          decoration: const InputDecoration(
+            labelText: 'Zip Code',
+            hintText: 'Enter your zip code (e.g., 85281)',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.location_on),
+          ),
+          keyboardType: TextInputType.number,
+          enabled: !_hasStarted,
+        ),
+        const SizedBox(height: 24),
+
+        Text(
+          'What Type of Diner Are You?',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+
+        ..._dataProvider.getSamplePersonas().map((persona) {
+          final isSelected = _selectedPersona?.name == persona.name;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: InkWell(
+              onTap: _hasStarted
+                  ? null
+                  : () {
+                      setState(() {
+                        _selectedPersona = persona;
+                      });
+                    },
+              child: Container(
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isSelected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          persona.name,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 40.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(persona.description),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Priorities: ${persona.priorities.join(', ')}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+        const SizedBox(height: 32),
+
+        if (!_hasStarted)
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _handleStart,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Find My Perfect Restaurant'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.all(16.0),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildProcessSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'How It Works: Self-Improving Analysis',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'This system doesn\'t just analyze restaurants - it improves '
+                  'its own analysis process while working:\n\n'
+                  '1. **Multi-Agent Workflow**: Multiple AI agents collaborate '
+                  '(planner, data analyst, service analyst, sentiment analyst)\n\n'
+                  '2. **6-Dimensional Evaluation**: Each analysis is scored on '
+                  'accuracy, completeness, helpfulness, conciseness, data-grounding, '
+                  'and personalization\n\n'
+                  '3. **Genetic Evolution**: The system mutates its "SOP genome" '
+                  '(number of reviews, which agents to use, personalization level) '
+                  'to find better configurations\n\n'
+                  '4. **Pareto Optimization**: Finds multiple good solutions, '
+                  'not just one, balancing trade-offs across dimensions',
+                ),
+                const SizedBox(height: 16),
+                const WorkflowDiagram(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEvolutionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Evolution Journey',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+            if (!_isRunning && _evolutionHistory.isNotEmpty)
+              FilledButton.icon(
+                onPressed: _runEvolutionCycle,
+                icon: const Icon(Icons.add),
+                label: const Text('Process More'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _status,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: _isRunning ? Colors.orange : Colors.green,
+                fontWeight: FontWeight.w500,
+              ),
+        ),
+        const SizedBox(height: 16),
+
+        if (_evolutionHistory.isNotEmpty) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Score Evolution',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    child: _buildScoreChart(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        Card(
+          child: _evolutionHistory.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Center(
+                    child: Text('Evolution will begin automatically...'),
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _evolutionHistory.length,
+                  itemBuilder: (context, index) {
+                    final log = _evolutionHistory[index];
+                    return _buildEvolutionTile(log);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScoreChart() {
+    final spots = _evolutionHistory
+        .asMap()
+        .entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value.bestScore))
+        .toList();
+
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: true),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toStringAsFixed(2),
+                  style: const TextStyle(fontSize: 10),
+                );
+              },
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  'Gen ${value.toInt()}',
+                  style: const TextStyle(fontSize: 10),
+                );
+              },
+            ),
+          ),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        borderData: FlBorderData(show: true),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: Colors.blue,
+            barWidth: 3,
+            dotData: const FlDotData(show: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEvolutionTile(EvolutionJourneyLog log) {
+    return ExpansionTile(
+      leading: CircleAvatar(
+        backgroundColor: log.generation == 0 ? Colors.grey : Theme.of(context).colorScheme.primary,
+        child: Text('${log.generation}'),
+      ),
+      title: Text(
+        'Generation ${log.generation} - Overall: ${log.bestScore.toStringAsFixed(3)}',
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        'Pareto Frontier: ${log.paretoSize} SOPs | '
+        'Acc: ${log.bestResult.accuracy.toStringAsFixed(2)}, '
+        'Help: ${log.bestResult.helpfulness.toStringAsFixed(2)}, '
+        'Pers: ${log.bestResult.personalization.toStringAsFixed(2)}',
+      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (log.mutationDescription != null) ...[
+                Text(
+                  'Mutations Applied:',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(log.mutationDescription!, style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 16),
+              ],
+              Text(
+                'SOP Configuration:',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Review Count: ${log.sop.reviewRetrieverK}\n'
+                'Data Analyst: ${log.sop.useDataAnalyst ? "Enabled" : "Disabled"}\n'
+                'Service Analyst: ${log.sop.useServiceAnalyst ? "Enabled" : "Disabled"}\n'
+                'Personalization Level: ${log.sop.personalizationLevel}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Detailed Evaluation Scores:',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Accuracy: ${log.bestResult.accuracy.toStringAsFixed(3)}\n'
+                'Completeness: ${log.bestResult.completeness.toStringAsFixed(3)}\n'
+                'Helpfulness: ${log.bestResult.helpfulness.toStringAsFixed(3)}\n'
+                'Conciseness: ${log.bestResult.conciseness.toStringAsFixed(3)}\n'
+                'Data-Grounded: ${log.bestResult.dataGrounded.toStringAsFixed(3)}\n'
+                'Personalization: ${log.bestResult.personalization.toStringAsFixed(3)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Generated Analysis:',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(log.analysisText, style: Theme.of(context).textTheme.bodyMedium),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Your Personalized Recommendations',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Based on ${_evolutionHistory.length} generations of self-improvement',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+        ),
+        const SizedBox(height: 24),
+
+        Card(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Diner Profile: ${_selectedPersona?.name}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(_selectedPersona?.description ?? ''),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on),
+                    const SizedBox(width: 12),
+                    Text('Location: Zip Code ${_zipCodeController.text}'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.restaurant),
+                    const SizedBox(width: 12),
+                    Text('Found ${_recommendations.length} top matches'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        Text(
+          'Top Recommendations',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+
+        ..._recommendations.map(_buildRecommendationCard),
+      ],
+    );
+  }
+
+  Widget _buildRecommendationCard(RestaurantRecommendation rec) {
+    final medalColors = [Colors.amber, Colors.grey[400]!, Colors.brown[300]!];
+    final medalIcons = ['🥇', '🥈', '🥉'];
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: medalColors[rec.rank - 1],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(medalIcons[rec.rank - 1], style: const TextStyle(fontSize: 24)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rec.restaurant.name,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.star, size: 16, color: Colors.amber[700]),
+                          const SizedBox(width: 4),
+                          Text('${rec.restaurant.stars.toStringAsFixed(1)} stars', style: Theme.of(context).textTheme.bodyMedium),
+                          const SizedBox(width: 16),
+                          Text('${rec.restaurant.reviewCount} reviews', style: Theme.of(context).textTheme.bodyMedium),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Match: ${(rec.score * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: rec.restaurant.categories.take(3).map((category) {
+                return Chip(label: Text(category), visualDensity: VisualDensity.compact);
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 16),
+                const SizedBox(width: 4),
+                Text('${rec.restaurant.city}, ${rec.restaurant.state}'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'AI-Powered Analysis',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(rec.analysis),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
