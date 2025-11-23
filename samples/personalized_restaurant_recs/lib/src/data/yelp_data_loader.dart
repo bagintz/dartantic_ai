@@ -19,13 +19,16 @@ class YelpDataLoader {
     return await businessFile.exists() && await reviewFile.exists();
   }
 
-  /// Load restaurants by zip code/postal code
+  /// Load restaurants by zip code/postal code (matches by 3-digit prefix)
   Future<List<Restaurant>> loadRestaurantsByZipCode(String zipCode) async {
     final businessFile = File('$datasetPath/yelp_academic_dataset_business.json');
 
     if (!await businessFile.exists()) {
       throw Exception('Business dataset not found at $datasetPath');
     }
+
+    // Use first 3 digits for broader area matching
+    final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
 
     final restaurants = <Restaurant>[];
     final lines = businessFile.openRead()
@@ -38,9 +41,12 @@ class YelpDataLoader {
       try {
         final json = jsonDecode(line) as Map<String, dynamic>;
 
-        // Check if this business matches the zip code
+        // Check if this business matches the zip code prefix
         final postalCode = json['postal_code'] as String?;
-        if (postalCode == null || postalCode != zipCode) continue;
+        if (postalCode == null || postalCode.length < 3) continue;
+
+        final restaurantPrefix = postalCode.substring(0, 3);
+        if (restaurantPrefix != zipPrefix) continue;
 
         // Only include restaurants (has categories)
         final categories = json['categories'] as String?;

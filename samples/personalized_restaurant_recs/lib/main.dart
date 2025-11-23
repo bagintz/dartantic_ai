@@ -300,14 +300,17 @@ class _HomePageState extends State<HomePage> {
         ? '📊 Real Yelp Data'
         : '🧪 Synthetic Demo Data';
 
+    final zipCode = _zipCodeController.text.trim();
+    final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
+
     setState(() {
-      _status = '$dataSourceLabel - Loading restaurants...';
+      _status = '$dataSourceLabel - Loading restaurants in area $zipPrefix**...';
     });
 
-    _restaurants = await _dataProvider.loadRestaurantsByZipCode(_zipCodeController.text.trim());
+    _restaurants = await _dataProvider.loadRestaurantsByZipCode(zipCode);
 
     if (_restaurants.isEmpty) {
-      throw Exception('No restaurants found in zip code ${_zipCodeController.text}');
+      throw Exception('No restaurants found in zip code area $zipPrefix** (searching $zipCode)');
     }
 
     // Take top 10 by rating
@@ -472,7 +475,8 @@ class _HomePageState extends State<HomePage> {
           controller: _zipCodeController,
           decoration: const InputDecoration(
             labelText: 'Zip Code',
-            hintText: 'Enter your zip code (e.g., 85281)',
+            hintText: 'Enter your zip code (e.g., 43204 searches Columbus area)',
+            helperText: 'Searches all restaurants in the same 3-digit area',
             border: OutlineInputBorder(),
             prefixIcon: Icon(Icons.location_on),
           ),
@@ -873,7 +877,11 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     const Icon(Icons.location_on),
                     const SizedBox(width: 12),
-                    Text('Location: Zip Code ${_zipCodeController.text}'),
+                    Text(() {
+                      final zipCode = _zipCodeController.text;
+                      final zipPrefix = zipCode.length >= 3 ? zipCode.substring(0, 3) : zipCode;
+                      return 'Location: Zip Code Area $zipPrefix** (${zipCode})';
+                    }()),
                   ],
                 ),
                 const SizedBox(height: 8),
