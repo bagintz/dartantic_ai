@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
       final reviews = _reviewsByRestaurant[restaurant.businessId] ?? [];
 
       setState(() {
-        _status = 'Running analysis (Generation ${_evolutionHistory.length})...';
+        _status = 'Running analysis (Generation ${_evolutionHistory.length + 1})...';
       });
 
       // Initialize or use current population
