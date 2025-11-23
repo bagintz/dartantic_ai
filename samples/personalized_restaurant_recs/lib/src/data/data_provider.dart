@@ -59,10 +59,11 @@ class DataProvider {
       }
     }
 
-    // Use synthetic data
+    // Use synthetic data for the requested zip code
     final dataset = _syntheticGenerator.generateDataset(
       restaurantCount: 10,
       reviewsPerRestaurant: 20,
+      zipCode: zipCode,
     );
     return dataset['restaurants'] as List<Restaurant>;
   }

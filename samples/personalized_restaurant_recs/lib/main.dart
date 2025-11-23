@@ -296,8 +296,12 @@ class _HomePageState extends State<HomePage> {
 
     final dataSource = await _dataProvider.initialize();
 
+    final dataSourceLabel = dataSource == DataSource.yelp
+        ? '📊 Real Yelp Data'
+        : '🧪 Synthetic Demo Data';
+
     setState(() {
-      _status = 'Data source: ${dataSource.name}. Loading restaurants...';
+      _status = '$dataSourceLabel - Loading restaurants...';
     });
 
     _restaurants = await _dataProvider.loadRestaurantsByZipCode(_zipCodeController.text.trim());
@@ -311,13 +315,13 @@ class _HomePageState extends State<HomePage> {
     _restaurants = _restaurants.take(10).toList();
 
     setState(() {
-      _status = 'Loading reviews for ${_restaurants.length} restaurants...';
+      _status = '$dataSourceLabel - Loading reviews for ${_restaurants.length} restaurants...';
     });
 
     _reviewsByRestaurant = await _dataProvider.loadReviews(_restaurants);
 
     setState(() {
-      _status = 'Data loaded. Starting evolution...';
+      _status = '$dataSourceLabel - Data loaded. Starting evolution...';
     });
   }
 

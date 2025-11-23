@@ -79,19 +79,78 @@ class SyntheticDataGenerator {
   ];
 
   /// Generate a restaurant with realistic data
-  Restaurant generateRestaurant(int index) {
+  Restaurant generateRestaurant(int index, {String? zipCode}) {
     final nameIndex = index % _restaurantNames.length;
     final category = _categories[index % _categories.length];
+
+    // Determine location based on zip code if provided
+    String city;
+    String state;
+    String postalCode;
+    double latitude;
+    double longitude;
+
+    if (zipCode != null && zipCode.length == 5) {
+      // Use provided zip code and infer location
+      final zipInt = int.tryParse(zipCode) ?? 0;
+      postalCode = zipCode;
+
+      // Simple zip code to location mapping (approximate)
+      if (zipInt >= 10000 && zipInt < 20000) {
+        city = 'New York';
+        state = 'NY';
+        latitude = 40.7128 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -74.0060 + (_random.nextDouble() - 0.5) * 0.1;
+      } else if (zipInt >= 30000 && zipInt < 40000) {
+        city = 'Atlanta';
+        state = 'GA';
+        latitude = 33.7490 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -84.3880 + (_random.nextDouble() - 0.5) * 0.1;
+      } else if (zipInt >= 43000 && zipInt < 44000) {
+        city = 'Columbus';
+        state = 'OH';
+        latitude = 39.9612 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -82.9988 + (_random.nextDouble() - 0.5) * 0.1;
+      } else if (zipInt >= 60000 && zipInt < 63000) {
+        city = 'Chicago';
+        state = 'IL';
+        latitude = 41.8781 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -87.6298 + (_random.nextDouble() - 0.5) * 0.1;
+      } else if (zipInt >= 85000 && zipInt < 86000) {
+        city = 'Phoenix';
+        state = 'AZ';
+        latitude = 33.4484 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -112.0740 + (_random.nextDouble() - 0.5) * 0.1;
+      } else if (zipInt >= 90000 && zipInt < 97000) {
+        city = 'Los Angeles';
+        state = 'CA';
+        latitude = 34.0522 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -118.2437 + (_random.nextDouble() - 0.5) * 0.1;
+      } else {
+        // Default to San Francisco for other zip codes
+        city = 'San Francisco';
+        state = 'CA';
+        latitude = 37.7749 + (_random.nextDouble() - 0.5) * 0.1;
+        longitude = -122.4194 + (_random.nextDouble() - 0.5) * 0.1;
+      }
+    } else {
+      // Default values
+      city = 'San Francisco';
+      state = 'CA';
+      postalCode = '94${_random.nextInt(100).toString().padLeft(3, "0")}';
+      latitude = 37.7749 + (_random.nextDouble() - 0.5) * 0.1;
+      longitude = -122.4194 + (_random.nextDouble() - 0.5) * 0.1;
+    }
 
     return Restaurant(
       businessId: 'rest_${index.toString().padLeft(5, "0")}',
       name: _restaurantNames[nameIndex],
       address: '${100 + _random.nextInt(900)} Main St',
-      city: 'San Francisco',
-      state: 'CA',
-      postalCode: '94${_random.nextInt(100).toString().padLeft(3, "0")}',
-      latitude: 37.7749 + (_random.nextDouble() - 0.5) * 0.1,
-      longitude: -122.4194 + (_random.nextDouble() - 0.5) * 0.1,
+      city: city,
+      state: state,
+      postalCode: postalCode,
+      latitude: latitude,
+      longitude: longitude,
       stars: 2.5 + _random.nextDouble() * 2.5, // 2.5 to 5.0
       reviewCount: 10 + _random.nextInt(200),
       categories: [category],
@@ -159,12 +218,13 @@ class SyntheticDataGenerator {
   Map<String, dynamic> generateDataset({
     int restaurantCount = 10,
     int reviewsPerRestaurant = 20,
+    String? zipCode,
   }) {
     final restaurants = <Restaurant>[];
     final allReviews = <Review>[];
 
     for (var i = 0; i < restaurantCount; i++) {
-      final restaurant = generateRestaurant(i);
+      final restaurant = generateRestaurant(i, zipCode: zipCode);
       restaurants.add(restaurant);
 
       final reviews = generateReviews(
