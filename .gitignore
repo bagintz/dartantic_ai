@@ -8,3 +8,8 @@ pubspec.lock
 .vscode/settings.json
 .DS_Store
 packages/dartantic_ai/example/.env
+
+# Test environment files with API keys
+packages/dartantic_ai/test/.env
+.env
+*.env
