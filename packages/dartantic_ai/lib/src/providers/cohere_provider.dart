@@ -96,7 +96,8 @@ class CohereProvider extends OpenAIProvider {
       return _extractCapsFromModelData(modelData);
     }
 
-    // Otherwise, fetch from native Cohere API which returns rich capability data
+    // Otherwise, fetch from native Cohere API which returns
+    // rich capability data
     final url = Uri.parse('https://api.cohere.com/v1/models');
     _logger.info('Fetching model capabilities from Cohere API: $url');
 
@@ -136,10 +137,11 @@ class CohereProvider extends OpenAIProvider {
   ///
   /// Cohere's API returns:
   /// - endpoints: ["chat", "embed", "rerank", "generate", etc.]
-  /// - features: ["vision", "json_mode", "json_schema", "tools", "reasoning", etc.]
+  /// - features: ["vision", "json_mode", "json_schema", "tools",
+  ///   "reasoning", etc.]
   List<ModelCaps> _extractCapsFromModelData(Map<String, dynamic> modelData) {
     final caps = <ModelCaps>{};
-    
+
     final endpoints = (modelData['endpoints'] as List?)?.cast<String>() ?? [];
     final features = (modelData['features'] as List?)?.cast<String>() ?? [];
 
@@ -166,7 +168,8 @@ class CohereProvider extends OpenAIProvider {
     // Typed output (structured outputs / JSON schema)
     if (features.contains('json_schema') || features.contains('json_mode')) {
       caps.add(ModelCaps.typedOutput);
-      // If model supports both tools and typed output, it likely supports both together
+      // If model supports both tools and typed output,
+      // it likely supports both together
       if (caps.contains(ModelCaps.multiToolCalls)) {
         caps.add(ModelCaps.typedOutputWithTools);
       }
@@ -219,7 +222,8 @@ class CohereProvider extends OpenAIProvider {
 
   @override
   Stream<ModelInfo> listModels() async* {
-    // Use native Cohere API which returns rich model data including capabilities
+    // Use native Cohere API which returns rich model data
+    // including capabilities
     final url = Uri.parse('https://api.cohere.com/v1/models');
     _logger.info('Fetching models from Cohere API: $url');
 

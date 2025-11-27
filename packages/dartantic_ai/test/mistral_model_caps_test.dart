@@ -1,4 +1,15 @@
 // ignore_for_file: avoid_print
+/// TESTING PHILOSOPHY:
+/// 1. DO NOT catch exceptions - let them bubble up for diagnosis
+/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 3. DO NOT add performance tests
+/// 4. DO NOT add regression tests
+/// 5. 80% cases = common usage patterns tested across ALL capable providers
+/// 6. Edge cases = rare scenarios tested on Google only to avoid timeouts
+/// 7. Each functionality should only be tested in ONE file - no duplication
+///
+/// Tests for Mistral fetchModelCaps implementation.
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,7 +19,6 @@ import 'package:test/test.dart';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-/// Tests for Mistral fetchModelCaps implementation.
 void main() {
   final apiKey = Platform.environment['MISTRAL_API_KEY'];
 
@@ -131,17 +141,22 @@ void main() {
         final status = hasExpected ? '✓' : '✗';
 
         print('$status $modelName');
-        print('  Expected (at least): ${expectedCaps.map((c) => c.name).toList()..sort()}');
+        print(
+          '  Expected (at least): ${expectedCaps.map((c) => c.name).toList()..sort()}',
+        );
         print('  Actual: ${actualCaps.map((c) => c.name).toList()..sort()}');
         if (!hasExpected) {
-          print('  Missing: ${expectedCaps.difference(actualCaps).map((c) => c.name).toList()}');
+          print(
+            '  Missing: ${expectedCaps.difference(actualCaps).map((c) => c.name).toList()}',
+          );
         }
         print('');
 
         expect(
           actualCaps.containsAll(expectedCaps),
           isTrue,
-          reason: 'Caps mismatch for $modelName - missing ${expectedCaps.difference(actualCaps)}',
+          reason:
+              'Caps mismatch for $modelName - missing ${expectedCaps.difference(actualCaps)}',
         );
       }
     });
@@ -160,7 +175,7 @@ void main() {
       await for (final model in provider.listModels()) {
         count++;
         if (count > 15) continue; // Just print first 15 for brevity
-        
+
         final capsStr = model.caps?.map((c) => c.name).join(', ') ?? 'none';
         final kindsStr = model.kinds.map((k) => k.name).join(', ');
         print('${model.name}');
@@ -182,24 +197,36 @@ void main() {
       final provider = MistralProvider(apiKey: apiKey);
 
       // Test heuristics for hypothetical models
+      // Note: Heuristics can only infer capabilities from model name patterns.
+      // Vision is only inferred for: pixtral, large, medium, or models with 'vision' in name.
+      // Unknown models without these patterns won't get chatVision.
       final heuristicTests = <String, Set<ModelCaps>>{
         'mistral-future-model': {
+          // No chatVision - heuristics can't know if unknown model has vision
           ModelCaps.chat,
-          ModelCaps.chatVision,
           ModelCaps.multiToolCalls,
           ModelCaps.typedOutput,
           ModelCaps.typedOutputWithTools,
         },
         'mistral-embed-future': {ModelCaps.embeddings},
         'magistral-future': {
+          // No chatVision - would need 'large', 'medium', or 'vision' in name
           ModelCaps.chat,
-          ModelCaps.chatVision,
           ModelCaps.multiToolCalls,
           ModelCaps.typedOutput,
           ModelCaps.typedOutputWithTools,
           ModelCaps.thinking,
         },
         'pixtral-future': {
+          // Has chatVision because 'pixtral' implies vision model
+          ModelCaps.chat,
+          ModelCaps.chatVision,
+          ModelCaps.multiToolCalls,
+          ModelCaps.typedOutput,
+          ModelCaps.typedOutputWithTools,
+        },
+        // Test that 'large' and 'medium' patterns get vision
+        'mistral-large-future': {
           ModelCaps.chat,
           ModelCaps.chatVision,
           ModelCaps.multiToolCalls,
@@ -221,7 +248,9 @@ void main() {
         final status = hasExpected ? '✓' : '✗';
 
         print('$status $modelName (heuristic)');
-        print('  Expected: ${expectedCaps.map((c) => c.name).toList()..sort()}');
+        print(
+          '  Expected: ${expectedCaps.map((c) => c.name).toList()..sort()}',
+        );
         print('  Actual: ${actualCaps.map((c) => c.name).toList()..sort()}');
         print('');
       }

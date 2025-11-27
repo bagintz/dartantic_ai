@@ -1,4 +1,15 @@
 // ignore_for_file: avoid_print
+/// TESTING PHILOSOPHY:
+/// 1. DO NOT catch exceptions - let them bubble up for diagnosis
+/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 3. DO NOT add performance tests
+/// 4. DO NOT add regression tests
+/// 5. 80% cases = common usage patterns tested across ALL capable providers
+/// 6. Edge cases = rare scenarios tested on Google only to avoid timeouts
+/// 7. Each functionality should only be tested in ONE file - no duplication
+///
+/// Tests for Cohere fetchModelCaps implementation.
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,7 +19,6 @@ import 'package:test/test.dart';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-/// Tests for Cohere fetchModelCaps implementation.
 void main() {
   final apiKey = Platform.environment['COHERE_API_KEY'];
 
@@ -114,17 +124,22 @@ void main() {
         final status = hasExpected ? '✓' : '✗';
 
         print('$status $modelName');
-        print('  Expected (at least): ${expectedCaps.map((c) => c.name).toList()..sort()}');
+        print(
+          '  Expected (at least): ${expectedCaps.map((c) => c.name).toList()..sort()}',
+        );
         print('  Actual: ${actualCaps.map((c) => c.name).toList()..sort()}');
         if (!hasExpected) {
-          print('  Missing: ${expectedCaps.difference(actualCaps).map((c) => c.name).toList()}');
+          print(
+            '  Missing: ${expectedCaps.difference(actualCaps).map((c) => c.name).toList()}',
+          );
         }
         print('');
 
         expect(
           actualCaps.containsAll(expectedCaps),
           isTrue,
-          reason: 'Caps mismatch for $modelName - missing ${expectedCaps.difference(actualCaps)}',
+          reason:
+              'Caps mismatch for $modelName - missing ${expectedCaps.difference(actualCaps)}',
         );
       }
     });
@@ -201,7 +216,9 @@ void main() {
         final status = hasExpected ? '✓' : '✗';
 
         print('$status $modelName (heuristic)');
-        print('  Expected: ${expectedCaps.map((c) => c.name).toList()..sort()}');
+        print(
+          '  Expected: ${expectedCaps.map((c) => c.name).toList()..sort()}',
+        );
         print('  Actual: ${actualCaps.map((c) => c.name).toList()..sort()}');
         print('');
       }

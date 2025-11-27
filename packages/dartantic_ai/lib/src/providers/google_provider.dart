@@ -152,13 +152,14 @@ class GoogleProvider
       final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
 
       // Normalize model name to include 'models/' prefix if needed
-      final normalizedName =
-          modelName.startsWith('models/') ? modelName : 'models/$modelName';
+      final normalizedName = modelName.startsWith('models/')
+          ? modelName
+          : 'models/$modelName';
 
       // Call Google's models.get REST endpoint
-      final url = Uri.parse(
-        '${resolvedBaseUrl.toString().replaceAll('/v1beta/', '/v1beta/')}$normalizedName',
-      ).replace(queryParameters: {'key': resolvedApiKey});
+      final baseUrlStr = resolvedBaseUrl.toString();
+      final url = Uri.parse('$baseUrlStr$normalizedName')
+          .replace(queryParameters: {'key': resolvedApiKey});
 
       final response = await http.get(url);
 
@@ -205,8 +206,7 @@ class GoogleProvider
     }
 
     // Check for thinking capability (explicit boolean field from API)
-    final thinking = data['thinking'] as bool?;
-    if (thinking == true) {
+    if (data['thinking'] as bool? ?? false) {
       caps.add(ModelCaps.thinking);
     }
 

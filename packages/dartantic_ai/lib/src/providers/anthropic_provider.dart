@@ -112,7 +112,7 @@ class AnthropicProvider
 
       // Extended thinking support for Claude 3.5+ and Claude 4+
       // Claude 3.5 Sonnet (claude-3-5-sonnet) and all Claude 4+ models
-      // Pattern: claude-3-5-*, claude-3.5-*, claude-3.7-*, claude-4*, 
+      // Pattern: claude-3-5-*, claude-3.5-*, claude-3.7-*, claude-4*,
       //          claude-sonnet-4*, claude-opus-4*, claude-haiku-4*
       if (_supportsThinking(id)) {
         caps.add(ModelCaps.thinking);
@@ -134,14 +134,14 @@ class AnthropicProvider
   static bool _supportsThinking(String id) {
     // Claude 4+ models (various naming patterns)
     // claude-4, claude-sonnet-4, claude-opus-4, claude-haiku-4
-    if (RegExp(r'claude-[a-z]*-?4').hasMatch(id)) return true;
-    
+    if (RegExp('claude-[a-z]*-?4').hasMatch(id)) return true;
+
     // Claude 3.5+ models (claude-3-5-sonnet, claude-3.5-sonnet)
     if (id.contains('claude-3-5') || id.contains('claude-3.5')) return true;
-    
+
     // Claude 3.7 models (claude-3-7-sonnet, claude-3.7-sonnet)
     if (id.contains('claude-3-7') || id.contains('claude-3.7')) return true;
-    
+
     return false;
   }
 
@@ -173,10 +173,10 @@ class AnthropicProvider
         if (m.containsKey('created_at')) 'createdAt': m['created_at'],
         if (m.containsKey('type')) 'type': m['type'],
       };
-      
+
       // Fetch capabilities for this model
       final caps = await fetchModelCaps(id, m);
-      
+
       yield ModelInfo(
         name: id,
         providerName: name,

@@ -1,11 +1,15 @@
 // ignore_for_file: avoid_print
-/// Test file to explore Google API model capabilities
-/// and document what we need for implementing fetchModelCaps
+/// TESTING PHILOSOPHY:
+/// 1. DO NOT catch exceptions - let them bubble up for diagnosis
+/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 3. DO NOT add performance tests
+/// 4. DO NOT add regression tests
+/// 5. 80% cases = common usage patterns tested across ALL capable providers
+/// 6. Edge cases = rare scenarios tested on Google only to avoid timeouts
+/// 7. Each functionality should only be tested in ONE file - no duplication
 ///
+/// Tests for Google fetchModelCaps implementation.
 /// Run with: dart test test/google_model_caps_test.dart -r expanded
-///
-/// Prerequisites:
-/// - Set GEMINI_API_KEY environment variable
 
 import 'dart:convert';
 import 'dart:io';
@@ -37,7 +41,9 @@ void main() {
         print('\n📦 Model: ${model.name}');
         print('   Display Name: ${model.displayName ?? 'N/A'}');
         print('   Kinds: ${model.kinds.map((k) => k.name).join(', ')}');
-        print('   Caps: ${model.caps?.map((c) => c.name).join(', ') ?? 'Not set'}');
+        print(
+          '   Caps: ${model.caps?.map((c) => c.name).join(', ') ?? 'Not set'}',
+        );
 
         final extra = model.extra;
         if (extra.isNotEmpty) {
@@ -132,8 +138,12 @@ Additional heuristics needed:
             print('   ✅ Success!');
             print('   Name: ${data['name']}');
             print('   Display Name: ${data['displayName']}');
-            print('   Description: ${_truncate(data['description'] as String? ?? '', 100)}');
-            print('   Supported Methods: ${data['supportedGenerationMethods']}');
+            print(
+              '   Description: ${_truncate(data['description'] as String? ?? '', 100)}',
+            );
+            print(
+              '   Supported Methods: ${data['supportedGenerationMethods']}',
+            );
             print('   Input Token Limit: ${data['inputTokenLimit']}');
             print('   Output Token Limit: ${data['outputTokenLimit']}');
 
@@ -153,7 +163,9 @@ Additional heuristics needed:
               'topK',
             };
 
-            final unknownFields = data.keys.where((k) => !knownFields.contains(k)).toList();
+            final unknownFields = data.keys
+                .where((k) => !knownFields.contains(k))
+                .toList();
             if (unknownFields.isNotEmpty) {
               print('   ⚠️  Additional fields: $unknownFields');
               for (final field in unknownFields) {
@@ -203,7 +215,9 @@ Additional heuristics needed:
           }
 
           final data = jsonDecode(response.body) as Map<String, dynamic>;
-          final methods = (data['supportedGenerationMethods'] as List?)?.cast<String>() ?? [];
+          final methods =
+              (data['supportedGenerationMethods'] as List?)?.cast<String>() ??
+              [];
           final name = (data['name'] as String?) ?? '';
           final description = (data['description'] as String?) ?? '';
 
@@ -232,7 +246,8 @@ Additional heuristics needed:
           }
 
           // Thinking models
-          if (lowerName.contains('thinking') || lowerDesc.contains('thinking')) {
+          if (lowerName.contains('thinking') ||
+              lowerDesc.contains('thinking')) {
             caps.add(ModelCaps.thinking);
           }
 
@@ -301,14 +316,17 @@ Additional heuristics needed:
       print('\nGemini models and their vision capability:');
       for (final model in geminiModels) {
         final desc = model.description?.toLowerCase() ?? '';
-        final hasVision = desc.contains('image') ||
+        final hasVision =
+            desc.contains('image') ||
             desc.contains('vision') ||
             desc.contains('multimodal') ||
             desc.contains('video');
 
         print('  ${model.name}:');
         print('    Vision indicators: $hasVision');
-        print('    Description snippet: ${_truncate(model.description ?? '', 80)}');
+        print(
+          '    Description snippet: ${_truncate(model.description ?? '', 80)}',
+        );
       }
     });
   });

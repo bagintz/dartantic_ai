@@ -95,7 +95,10 @@ abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
   }
 
   @override
-  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) async {
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
     // OpenAI's /v1/models endpoint only returns basic metadata (id, object,
     // created, owned_by) - no capability information. We use heuristics based
     // on model ID patterns which is the industry standard approach.
@@ -137,7 +140,7 @@ abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
     }
 
     // O-series reasoning models (o1, o3, o4)
-    if (RegExp(r'^o[134]').hasMatch(id)) {
+    if (RegExp('^o[134]').hasMatch(id)) {
       caps.add(ModelCaps.chat);
       caps.add(ModelCaps.thinking);
       // O-series models support tools and structured outputs
@@ -234,7 +237,9 @@ abstract class OpenAIProviderBase<TChatOptions extends ChatModelOptions>
 
     // Default: assume it's a chat model if we don't recognize it
     // This handles fine-tuned models and new models we haven't categorized
-    logger.fine('Unknown OpenAI model pattern: $modelName, assuming chat capability');
+    logger.fine(
+      'Unknown OpenAI model pattern: $modelName, assuming chat capability',
+    );
     caps.add(ModelCaps.chat);
     return caps.toList();
   }

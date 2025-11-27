@@ -1,4 +1,15 @@
 // ignore_for_file: avoid_print
+/// TESTING PHILOSOPHY:
+/// 1. DO NOT catch exceptions - let them bubble up for diagnosis
+/// 2. DO NOT add provider filtering except by capabilities (e.g. ProviderCaps)
+/// 3. DO NOT add performance tests
+/// 4. DO NOT add regression tests
+/// 5. 80% cases = common usage patterns tested across ALL capable providers
+/// 6. Edge cases = rare scenarios tested on Google only to avoid timeouts
+/// 7. Each functionality should only be tested in ONE file - no duplication
+///
+/// Tests for OpenAI fetchModelCaps implementation.
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,8 +19,6 @@ import 'package:test/test.dart';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-/// Exploratory test to understand OpenAI's models API structure
-/// for implementing fetchModelCaps
 void main() {
   final apiKey = Platform.environment['OPENAI_API_KEY'];
 
@@ -80,7 +89,9 @@ void main() {
         final id = model['id'] as String;
         if (id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4')) {
           print('  $id');
-          print('    Full: ${const JsonEncoder.withIndent('    ').convert(model)}');
+          print(
+            '    Full: ${const JsonEncoder.withIndent('    ').convert(model)}',
+          );
         }
       }
       print('');
@@ -153,99 +164,206 @@ void main() {
           print(const JsonEncoder.withIndent('  ').convert(model));
           print('');
         } else {
-          print('Model $modelId: ${response.statusCode} - not found or no access');
+          print(
+            'Model $modelId: ${response.statusCode} - not found or no access',
+          );
         }
       }
     });
   });
 
   group('OpenAI Provider ModelCaps', () {
-    test('fetchModelCaps returns correct capabilities for various models', () async {
-      if (apiKey == null) {
-        print('OPENAI_API_KEY not set, skipping test');
-        return;
-      }
-
-      final provider = OpenAIProvider(apiKey: apiKey);
-
-      // Test various model patterns
-      final testCases = <String, List<ModelCaps>>{
-        // GPT-4o multimodal models
-        'gpt-4o': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'gpt-4o-mini': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'gpt-4o-2024-11-20': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // GPT-4.1 models
-        'gpt-4.1': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'gpt-4.1-mini': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // O-series reasoning models
-        'o1': [ModelCaps.chat, ModelCaps.thinking, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'o3-mini': [ModelCaps.chat, ModelCaps.thinking, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'o4-mini': [ModelCaps.chat, ModelCaps.thinking, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // GPT-5 models (reasoning)
-        'gpt-5': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.thinking, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // Audio models
-        'gpt-4o-audio-preview': [ModelCaps.chat, ModelCaps.audio, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'gpt-4o-realtime-preview': [ModelCaps.chat, ModelCaps.audio, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // Embedding models
-        'text-embedding-3-small': [ModelCaps.embeddings],
-        'text-embedding-ada-002': [ModelCaps.embeddings],
-        
-        // TTS models
-        'tts-1': [ModelCaps.tts],
-        'tts-1-hd': [ModelCaps.tts],
-        'gpt-4o-mini-tts': [ModelCaps.tts],
-        
-        // Whisper/transcription
-        'whisper-1': [ModelCaps.audio],
-        'gpt-4o-transcribe': [ModelCaps.audio],
-        
-        // Image models
-        'dall-e-3': [ModelCaps.image],
-        'dall-e-2': [ModelCaps.image],
-        
-        // GPT-4 base (text only)
-        'gpt-4': [ModelCaps.chat, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        'gpt-4-0613': [ModelCaps.chat, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // GPT-4 Turbo (vision capable)
-        'gpt-4-turbo': [ModelCaps.chat, ModelCaps.chatVision, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // GPT-3.5
-        'gpt-3.5-turbo': [ModelCaps.chat, ModelCaps.multiToolCalls, ModelCaps.typedOutput, ModelCaps.typedOutputWithTools],
-        
-        // Legacy
-        'davinci-002': [ModelCaps.chat],
-      };
-
-      print('Testing fetchModelCaps for various model patterns:\n');
-      
-      for (final entry in testCases.entries) {
-        final modelName = entry.key;
-        final expectedCaps = entry.value.toSet();
-        
-        final caps = await provider.fetchModelCaps(modelName);
-        final actualCaps = caps?.toSet() ?? <ModelCaps>{};
-        
-        final match = actualCaps.containsAll(expectedCaps) && expectedCaps.containsAll(actualCaps);
-        final status = match ? '✓' : '✗';
-        
-        print('$status $modelName');
-        print('  Expected: ${expectedCaps.map((c) => c.name).toList()..sort()}');
-        print('  Actual:   ${actualCaps.map((c) => c.name).toList()..sort()}');
-        if (!match) {
-          print('  Missing:  ${expectedCaps.difference(actualCaps).map((c) => c.name).toList()}');
-          print('  Extra:    ${actualCaps.difference(expectedCaps).map((c) => c.name).toList()}');
+    test(
+      'fetchModelCaps returns correct capabilities for various models',
+      () async {
+        if (apiKey == null) {
+          print('OPENAI_API_KEY not set, skipping test');
+          return;
         }
-        print('');
-        
-        expect(actualCaps, equals(expectedCaps), reason: 'Caps mismatch for $modelName');
-      }
-    });
+
+        final provider = OpenAIProvider(apiKey: apiKey);
+
+        // Test various model patterns
+        final testCases = <String, List<ModelCaps>>{
+          // GPT-4o multimodal models
+          'gpt-4o': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'gpt-4o-mini': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'gpt-4o-2024-11-20': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // GPT-4.1 models
+          'gpt-4.1': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'gpt-4.1-mini': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // O-series reasoning models
+          'o1': [
+            ModelCaps.chat,
+            ModelCaps.thinking,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'o3-mini': [
+            ModelCaps.chat,
+            ModelCaps.thinking,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'o4-mini': [
+            ModelCaps.chat,
+            ModelCaps.thinking,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // GPT-5 models (reasoning)
+          'gpt-5': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.thinking,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // Audio models
+          'gpt-4o-audio-preview': [
+            ModelCaps.chat,
+            ModelCaps.audio,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'gpt-4o-realtime-preview': [
+            ModelCaps.chat,
+            ModelCaps.audio,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // Embedding models
+          'text-embedding-3-small': [ModelCaps.embeddings],
+          'text-embedding-ada-002': [ModelCaps.embeddings],
+
+          // TTS models
+          'tts-1': [ModelCaps.tts],
+          'tts-1-hd': [ModelCaps.tts],
+          'gpt-4o-mini-tts': [ModelCaps.tts],
+
+          // Whisper/transcription
+          'whisper-1': [ModelCaps.audio],
+          'gpt-4o-transcribe': [ModelCaps.audio],
+
+          // Image models
+          'dall-e-3': [ModelCaps.image],
+          'dall-e-2': [ModelCaps.image],
+
+          // GPT-4 base (text only)
+          'gpt-4': [
+            ModelCaps.chat,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+          'gpt-4-0613': [
+            ModelCaps.chat,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // GPT-4 Turbo (vision capable)
+          'gpt-4-turbo': [
+            ModelCaps.chat,
+            ModelCaps.chatVision,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // GPT-3.5
+          'gpt-3.5-turbo': [
+            ModelCaps.chat,
+            ModelCaps.multiToolCalls,
+            ModelCaps.typedOutput,
+            ModelCaps.typedOutputWithTools,
+          ],
+
+          // Legacy
+          'davinci-002': [ModelCaps.chat],
+        };
+
+        print('Testing fetchModelCaps for various model patterns:\n');
+
+        for (final entry in testCases.entries) {
+          final modelName = entry.key;
+          final expectedCaps = entry.value.toSet();
+
+          final caps = await provider.fetchModelCaps(modelName);
+          final actualCaps = caps?.toSet() ?? <ModelCaps>{};
+
+          final match =
+              actualCaps.containsAll(expectedCaps) &&
+              expectedCaps.containsAll(actualCaps);
+          final status = match ? '✓' : '✗';
+
+          print('$status $modelName');
+          print(
+            '  Expected: ${expectedCaps.map((c) => c.name).toList()..sort()}',
+          );
+          print(
+            '  Actual:   ${actualCaps.map((c) => c.name).toList()..sort()}',
+          );
+          if (!match) {
+            print(
+              '  Missing:  ${expectedCaps.difference(actualCaps).map((c) => c.name).toList()}',
+            );
+            print(
+              '  Extra:    ${actualCaps.difference(expectedCaps).map((c) => c.name).toList()}',
+            );
+          }
+          print('');
+
+          expect(
+            actualCaps,
+            equals(expectedCaps),
+            reason: 'Caps mismatch for $modelName',
+          );
+        }
+      },
+    );
 
     test('listModels includes caps', () async {
       if (apiKey == null) {
@@ -254,26 +372,34 @@ void main() {
       }
 
       final provider = OpenAIProvider(apiKey: apiKey);
-      
+
       print('Listing models with capabilities:\n');
-      
+
       var count = 0;
       await for (final model in provider.listModels()) {
         count++;
         final capsStr = model.caps?.map((c) => c.name).join(', ') ?? 'none';
         print('${model.name}: [$capsStr]');
-        
+
         // Verify caps is not null for recognized models
-        if (model.name.contains('gpt') || 
+        if (model.name.contains('gpt') ||
             model.name.contains('embedding') ||
             model.name.startsWith('o1') ||
             model.name.startsWith('o3') ||
             model.name.startsWith('o4')) {
-          expect(model.caps, isNotNull, reason: '${model.name} should have caps');
-          expect(model.caps, isNotEmpty, reason: '${model.name} should have at least one cap');
+          expect(
+            model.caps,
+            isNotNull,
+            reason: '${model.name} should have caps',
+          );
+          expect(
+            model.caps,
+            isNotEmpty,
+            reason: '${model.name} should have at least one cap',
+          );
         }
       }
-      
+
       print('\nTotal models with caps: $count');
       expect(count, greaterThan(0));
     });
