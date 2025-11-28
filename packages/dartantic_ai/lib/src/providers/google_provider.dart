@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
@@ -132,7 +134,103 @@ class GoogleProvider
   }
 
   @override
-  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    // If modelData is provided (from listModels), use it directly
+    if (modelData != null && modelData.isNotEmpty) {
+      return _parseModelCaps(modelData);
+    }
+
+    try {
+      final resolvedApiKey = apiKey ?? tryGetEnv(defaultApiKeyName);
+      if (resolvedApiKey == null || resolvedApiKey.isEmpty) {
+        _logger.warning('No API key available for fetching model caps');
+        return null;
+      }
+
+      final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+
+      // Normalize model name to include 'models/' prefix if needed
+      final normalizedName = modelName.startsWith('models/')
+          ? modelName
+          : 'models/$modelName';
+
+      // Call Google's models.get REST endpoint
+      final baseUrlStr = resolvedBaseUrl.toString();
+      final url = Uri.parse('$baseUrlStr$normalizedName')
+          .replace(queryParameters: {'key': resolvedApiKey});
+
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        _logger.warning(
+          'Failed to get model details for $modelName: '
+          'HTTP ${response.statusCode}',
+        );
+        return null;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseModelCaps(data);
+    } on Exception catch (e) {
+      _logger.warning('Error fetching model caps for $modelName: $e');
+      return null;
+    }
+  }
+
+  /// Parses model capabilities from the Google API response.
+  List<ModelCaps> _parseModelCaps(Map<String, dynamic> data) {
+    final caps = <ModelCaps>[];
+
+    // Parse supportedGenerationMethods
+    final methods =
+        (data['supportedGenerationMethods'] as List?)?.cast<String>() ?? [];
+    final lowerMethods = methods.map((m) => m.toLowerCase()).toList();
+
+    // Method-based capabilities
+    if (lowerMethods.any((m) => m.contains('generatecontent'))) {
+      caps.add(ModelCaps.chat);
+    }
+    if (lowerMethods.any((m) => m.contains('embed'))) {
+      caps.add(ModelCaps.embeddings);
+    }
+    if (lowerMethods.any((m) => m.contains('counttokens'))) {
+      caps.add(ModelCaps.countTokens);
+    }
+    if (lowerMethods.any((m) => m.contains('bidigeneratecontent'))) {
+      caps.add(ModelCaps.audio);
+    }
+    if (lowerMethods.any((m) => m.contains('predict'))) {
+      caps.add(ModelCaps.image);
+    }
+
+    // Check for thinking capability (explicit boolean field from API)
+    if (data['thinking'] as bool? ?? false) {
+      caps.add(ModelCaps.thinking);
+    }
+
+    // Check for vision/multimodal capability via description heuristics
+    final description = (data['description'] as String? ?? '').toLowerCase();
+    final name = (data['name'] as String? ?? '').toLowerCase();
+    if (description.contains('multimodal') ||
+        description.contains('image') ||
+        description.contains('vision') ||
+        name.contains('vision')) {
+      caps.add(ModelCaps.chatVision);
+    }
+
+    // For chat-capable Gemini models, add tool calling and typed output
+    // (Google Gemini supports these for all chat models)
+    if (caps.contains(ModelCaps.chat) && !caps.contains(ModelCaps.embeddings)) {
+      caps.add(ModelCaps.multiToolCalls);
+      caps.add(ModelCaps.typedOutput);
+      caps.add(ModelCaps.typedOutputWithTools);
+    }
+
+    return caps;
+  }
 
   @override
   Stream<ModelInfo> listModels() async* {
@@ -158,7 +256,7 @@ class GoogleProvider
           '(pageToken: ${pageToken ?? 'start'})',
         );
         for (final model in models) {
-          final info = _mapModel(model);
+          final info = await _mapModel(model);
           if (info != null) yield info;
         }
         pageToken = response.nextPageToken;
@@ -175,7 +273,7 @@ class GoogleProvider
     }
   }
 
-  ModelInfo? _mapModel(gl.Model model) {
+  Future<ModelInfo?> _mapModel(gl.Model model) async {
     final id = model.name;
     if (id == null || id.isEmpty) {
       _logger.warning('Skipping model with missing name: $model');
@@ -245,6 +343,15 @@ class GoogleProvider
       if (model.maxTemperature != null) 'maxTemperature': model.maxTemperature,
       if (model.topP != null) 'topP': model.topP,
       if (model.topK != null) 'topK': model.topK,
+      if (model.thinking != null) 'thinking': model.thinking,
+    };
+
+    // Build model data map for getModelCaps (includes thinking field)
+    final modelData = <String, dynamic>{
+      'name': id,
+      'description': description,
+      'supportedGenerationMethods': model.supportedGenerationMethods,
+      if (model.thinking != null) 'thinking': model.thinking,
     };
 
     return ModelInfo(
@@ -253,6 +360,7 @@ class GoogleProvider
       kinds: kinds,
       displayName: model.displayName,
       description: description.isNotEmpty ? description : null,
+      caps: await getModelCaps(id, modelData),
       extra: extra,
     );
   }

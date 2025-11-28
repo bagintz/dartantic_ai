@@ -1,6 +1,6 @@
+import 'dart:convert';
+
 import 'package:dartantic_interface/dartantic_interface.dart';
-import 'package:html/dom.dart' as dom;
-import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
@@ -88,145 +88,200 @@ class CohereProvider extends OpenAIProvider {
   }
 
   @override
-  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    // If we already have model data (from listModels), use it directly
+    if (modelData != null) {
+      return _extractCapsFromModelData(modelData);
+    }
 
-  @override
-  Stream<ModelInfo> listModels() async* {
-    final url = Uri.parse('https://docs.cohere.com/docs/models');
-    _logger.info('Fetching models from Cohere docs: $url');
-    final response = await http.get(url);
+    // Otherwise, fetch from native Cohere API which returns
+    // rich capability data
+    final url = Uri.parse('https://api.cohere.com/v1/models');
+    _logger.info('Fetching model capabilities from Cohere API: $url');
+
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $apiKey'},
+    );
+
     if (response.statusCode != 200) {
       _logger.warning(
         'Failed to fetch models: HTTP ${response.statusCode}, '
         'body: ${response.body}',
       );
-      throw Exception('Failed to fetch Cohere models docs: ${response.body}');
+      // Fall back to heuristics
+      return _heuristicCaps(modelName);
     }
-    final doc = html_parser.parse(response.body);
-    _logger.info('Successfully fetched Cohere models documentation');
-    // Find all tables whose first header cell is 'Model Name'
-    for (final table in doc.querySelectorAll('table')) {
-      final headerCells = table.querySelectorAll('th');
-      if (headerCells.isEmpty) continue;
-      final firstHeader = headerCells.first.text.trim().toLowerCase();
-      if (firstHeader == 'model name') {
-        // Try to determine kind from headers or parse as chat/embedding/other
-        final headers = headerCells
-            .map((th) => th.text.trim().toLowerCase())
-            .toList();
-        // Parse the table, passing headers for classification
-        yield* _parseCohereTableWithHeaders(table, headers);
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final modelsList = data['models'] as List?;
+    if (modelsList == null) {
+      return _heuristicCaps(modelName);
+    }
+
+    // Find the matching model
+    for (final m in modelsList.cast<Map<String, dynamic>>()) {
+      final name = m['name'] as String? ?? '';
+      if (name == modelName || name.toLowerCase() == modelName.toLowerCase()) {
+        return _extractCapsFromModelData(m);
       }
     }
+
+    // Model not found in API response, fall back to heuristics
+    return _heuristicCaps(modelName);
   }
 
-  // Parse a Cohere model table, using headers to classify model kind
-  Stream<ModelInfo> _parseCohereTableWithHeaders(
-    dom.Element table,
-    List<String> headers,
-  ) async* {
-    final rows = table.querySelectorAll('tbody tr');
-    for (final row in rows) {
-      final cells = row.querySelectorAll('td');
-      if (cells.isEmpty) continue;
-      final id = cells[0].text.trim();
-      final description = cells.length > 1 ? cells[1].text.trim() : null;
+  /// Extract capabilities from Cohere model data.
+  ///
+  /// Cohere's API returns:
+  /// - endpoints: ["chat", "embed", "rerank", "generate", etc.]
+  /// - features: ["vision", "json_mode", "json_schema", "tools",
+  ///   "reasoning", etc.]
+  List<ModelCaps> _extractCapsFromModelData(Map<String, dynamic> modelData) {
+    final caps = <ModelCaps>{};
 
-      // Only include live models
-      if (!_isLiveModel(id, cells, headers)) {
-        _logger.info('Skipping non-live model: $id');
-        continue;
+    final endpoints = (modelData['endpoints'] as List?)?.cast<String>() ?? [];
+    final features = (modelData['features'] as List?)?.cast<String>() ?? [];
+
+    // Chat capability from endpoints
+    if (endpoints.contains('chat') || endpoints.contains('generate')) {
+      caps.add(ModelCaps.chat);
+    }
+
+    // Embeddings capability
+    if (endpoints.contains('embed') || endpoints.contains('embed_image')) {
+      caps.add(ModelCaps.embeddings);
+    }
+
+    // Vision capability
+    if (features.contains('vision')) {
+      caps.add(ModelCaps.chatVision);
+    }
+
+    // Tool calling capability
+    if (features.contains('tools') || features.contains('strict_tools')) {
+      caps.add(ModelCaps.multiToolCalls);
+    }
+
+    // Typed output (structured outputs / JSON schema)
+    if (features.contains('json_schema') || features.contains('json_mode')) {
+      caps.add(ModelCaps.typedOutput);
+      // If model supports both tools and typed output,
+      // it likely supports both together
+      if (caps.contains(ModelCaps.multiToolCalls)) {
+        caps.add(ModelCaps.typedOutputWithTools);
       }
+    }
+
+    // Reasoning/thinking capability
+    if (features.contains('reasoning')) {
+      caps.add(ModelCaps.thinking);
+    }
+
+    return caps.toList();
+  }
+
+  /// Heuristic-based capability detection for when API data is unavailable.
+  List<ModelCaps> _heuristicCaps(String modelName) {
+    final id = modelName.toLowerCase();
+    final caps = <ModelCaps>{};
+
+    // Embedding models
+    if (id.contains('embed')) {
+      caps.add(ModelCaps.embeddings);
+      return caps.toList();
+    }
+
+    // Rerank models - not a capability we track
+    if (id.contains('rerank')) {
+      return caps.toList();
+    }
+
+    // Command models (chat)
+    if (id.contains('command') || id.contains('c4ai-aya')) {
+      caps.add(ModelCaps.chat);
+      caps.add(ModelCaps.multiToolCalls);
+      caps.add(ModelCaps.typedOutput);
+      caps.add(ModelCaps.typedOutputWithTools);
+
+      // Vision models
+      if (id.contains('vision')) {
+        caps.add(ModelCaps.chatVision);
+      }
+
+      // Reasoning models
+      if (id.contains('reasoning')) {
+        caps.add(ModelCaps.thinking);
+      }
+    }
+
+    return caps.toList();
+  }
+
+  @override
+  Stream<ModelInfo> listModels() async* {
+    // Use native Cohere API which returns rich model data
+    // including capabilities
+    final url = Uri.parse('https://api.cohere.com/v1/models');
+    _logger.info('Fetching models from Cohere API: $url');
+
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $apiKey'},
+    );
+
+    if (response.statusCode != 200) {
+      _logger.warning(
+        'Failed to fetch models: HTTP ${response.statusCode}, '
+        'body: ${response.body}',
+      );
+      throw Exception('Failed to fetch Cohere models: ${response.body}');
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final modelsList = data['models'] as List?;
+    if (modelsList == null) {
+      throw Exception('Cohere API response missing "models" field.');
+    }
+
+    for (final m in modelsList.cast<Map<String, dynamic>>()) {
+      final id = m['name'] as String? ?? '';
+      final endpoints = (m['endpoints'] as List?)?.cast<String>() ?? [];
+      final contextLength = m['context_length'] as int?;
+
+      // Determine model kind from endpoints
       final kinds = <ModelKind>{};
-      final idLower = id.toLowerCase();
-      // Heuristics based on model name
-      if (idLower.contains('embed')) {
-        kinds.add(ModelKind.embeddings);
-      }
-      if (idLower.contains('command') ||
-          idLower.contains('c4ai-aya') ||
-          idLower.contains('vision')) {
+      if (endpoints.contains('chat') || endpoints.contains('generate')) {
         kinds.add(ModelKind.chat);
       }
-      if (idLower.contains('rerank')) {
-        kinds.add(ModelKind.other); // Consider ModelKind.rerank if you add it
+      if (endpoints.contains('embed') || endpoints.contains('embed_image')) {
+        kinds.add(ModelKind.embeddings);
       }
-      // Only fall back to Modality column if name is ambiguous
-      if (kinds.isEmpty) {
-        final modalityIdx = headers.indexWhere(
-          (h) => h == 'modality' || h == 'modalities',
-        );
-        if (modalityIdx != -1 && cells.length > modalityIdx) {
-          final modality = cells[modalityIdx].text.trim().toLowerCase();
-          if (modality.contains('text') && !modality.contains('embed')) {
-            kinds.add(ModelKind.chat);
-          } else if (modality.contains('embed')) {
-            kinds.add(ModelKind.embeddings);
-          } else if (modality.contains('image') ||
-              modality.contains('vision')) {
-            kinds.add(ModelKind.image);
-          } else if (modality.contains('audio')) {
-            kinds.add(ModelKind.audio);
-          } else if (modality.contains('tts')) {
-            kinds.add(ModelKind.tts);
-          } else {
-            kinds.add(ModelKind.other);
-          }
-        }
+      if (endpoints.contains('rerank')) {
+        kinds.add(ModelKind.other);
       }
-
-      // Ensure kinds is never empty
       if (kinds.isEmpty) kinds.add(ModelKind.other);
-      // Try to get context window if present
-      int? contextWindow;
-      final contextIdx = headers.indexWhere(
-        (h) => h.contains('context length'),
-      );
 
-      if (contextIdx != -1 && cells.length > contextIdx) {
-        final text = cells[contextIdx].text;
-        final match = RegExp(r'(\d+)k').firstMatch(text);
-        if (match != null) {
-          contextWindow = int.tryParse(match.group(1)!)! * 1000;
-        }
-      }
+      // Extract capabilities from model data
+      final caps = _extractCapsFromModelData(m);
 
       yield ModelInfo(
         name: id,
         providerName: name,
         kinds: kinds,
         displayName: id,
-        description: description,
+        description: null,
+        caps: caps,
         extra: {
-          for (var i = 0; i < headers.length && i < cells.length; i++)
-            headers[i]: cells[i].text.trim(),
-          'description': description,
-          if (contextWindow != null) 'contextWindow': contextWindow,
+          if (contextLength != null) 'contextLength': contextLength,
+          if (m.containsKey('features')) 'features': m['features'],
+          if (m.containsKey('endpoints')) 'endpoints': endpoints,
+          if (m.containsKey('finetuned')) 'finetuned': m['finetuned'],
         },
       );
     }
-  }
-
-  // Check if a model is explicitly marked as live in the table
-  bool _isLiveModel(
-    String modelId,
-    List<dom.Element> cells,
-    List<String> headers,
-  ) {
-    // Find the status column
-    final statusIndex = headers.indexWhere(
-      (h) =>
-          h.toLowerCase().contains('status') ||
-          h.toLowerCase().contains('availability'),
-    );
-
-    if (statusIndex != -1 && cells.length > statusIndex) {
-      final statusText = cells[statusIndex].text.trim().toLowerCase();
-      // Only return true if explicitly marked as live
-      return statusText.contains('live');
-    }
-
-    // No status column found - model is not confirmed as live
-    return false;
   }
 }

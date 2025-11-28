@@ -2,19 +2,27 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 
 import 'anthropic_provider.dart';
 import 'cohere_provider.dart';
+import 'google_openai_provider.dart';
 import 'google_provider.dart';
 import 'mistral_provider.dart';
+import 'ollama_openai_provider.dart';
 import 'ollama_provider.dart';
 import 'openai_provider.dart';
 import 'openai_responses_provider.dart';
+import 'openrouter_provider.dart';
+import 'together_provider.dart';
 
 export 'anthropic_provider.dart';
 export 'cohere_provider.dart';
+export 'google_openai_provider.dart';
 export 'google_provider.dart';
 export 'mistral_provider.dart';
+export 'ollama_openai_provider.dart';
 export 'ollama_provider.dart';
 export 'openai_provider.dart';
 export 'openai_responses_provider.dart';
+export 'openrouter_provider.dart';
+export 'together_provider.dart';
 
 /// Providers for built-in chat and embeddings models.
 class Providers {
@@ -23,15 +31,15 @@ class Providers {
   // Private cache fields for lazy initialization
   static OpenAIProvider? _openai;
   static OpenAIResponsesProvider? _openaiResponses;
-  static OpenAIProvider? _openrouter;
-  static OpenAIProvider? _together;
+  static OpenRouterProvider? _openrouter;
+  static TogetherProvider? _together;
   static MistralProvider? _mistral;
   static CohereProvider? _cohere;
-  static OpenAIProvider? _googleOpenAI;
+  static GoogleOpenAIProvider? _googleOpenAI;
   static GoogleProvider? _google;
   static AnthropicProvider? _anthropic;
   static OllamaProvider? _ollama;
-  static OpenAIProvider? _ollamaOpenAI;
+  static OllamaOpenAIProvider? _ollamaOpenAI;
 
   /// OpenAI provider (cloud, OpenAI API).
   static OpenAIProvider get openai => _openai ??= OpenAIProvider();
@@ -40,37 +48,27 @@ class Providers {
   static OpenAIResponsesProvider get openaiResponses =>
       _openaiResponses ??= OpenAIResponsesProvider();
 
-  /// OpenRouter provider (OpenAI-compatible, multi-model cloud).
-  static OpenAIProvider get openrouter => _openrouter ??= OpenAIProvider(
-    name: 'openrouter',
-    displayName: 'OpenRouter',
-    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
-    baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
-    apiKeyName: 'OPENROUTER_API_KEY',
-    caps: {
-      ProviderCaps.chat,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.chatVision,
-    },
-  );
-
-  /// Together AI provider (OpenAI-compatible, cloud).
+  /// OpenRouter provider (multi-model cloud with native capability detection).
   ///
-  /// - Note: Tool support is disabled because Together's streaming API returns
-  ///   tool calls in a custom format with `<|python_tag|>` prefix instead of
-  ///   the standard OpenAI tool_calls format while streaming.
-  /// - TODO: perhaps move to non-streaming?
-  static OpenAIProvider get together => _together ??= OpenAIProvider(
-    name: 'together',
-    displayName: 'Together AI',
-    defaultModelNames: {
-      ModelKind.chat: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
-    },
-    baseUrl: Uri.parse('https://api.together.xyz/v1'),
-    apiKeyName: 'TOGETHER_API_KEY',
-    caps: {ProviderCaps.chat, ProviderCaps.typedOutput},
-  );
+  /// OpenRouter provides access to 400+ AI models with rich capability metadata
+  /// via the /api/v1/models endpoint. Capabilities are detected from:
+  /// - `architecture.input_modalities`: ["text", "image", "audio", "file"]
+  /// - `architecture.output_modalities`: ["text", "image"]
+  /// - `supported_parameters`: ["tools", "reasoning", "structured_outputs"]
+  static OpenRouterProvider get openrouter =>
+      _openrouter ??= OpenRouterProvider();
+
+  /// Together AI provider (cloud with heuristic capability detection).
+  ///
+  /// Together AI's API returns basic model metadata. Capabilities are detected
+  /// using:
+  /// - Model `type` field: "chat", "image", "audio", "embedding", etc.
+  /// - Model naming patterns: "VL" suffix for vision-language models
+  /// - Documented function-calling support for specific models
+  ///
+  /// Note: Tool support may have streaming format issues with some models.
+  /// See https://docs.together.ai/docs/function-calling for supported models.
+  static TogetherProvider get together => _together ??= TogetherProvider();
 
   /// Mistral AI provider (native API, cloud).
   static MistralProvider get mistral => _mistral ??= MistralProvider();
@@ -79,25 +77,11 @@ class Providers {
   static CohereProvider get cohere => _cohere ??= CohereProvider();
 
   /// Gemini (OpenAI-compatible) provider (Google AI, OpenAI API).
-  static OpenAIProvider get googleOpenAI => _googleOpenAI ??= OpenAIProvider(
-    name: 'google-openai',
-    displayName: 'Google AI (OpenAI-compatible)',
-    defaultModelNames: {
-      ModelKind.chat: 'gemini-2.5-flash',
-      ModelKind.embeddings: 'text-embedding-004',
-    },
-    baseUrl: Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/openai',
-    ),
-    apiKeyName: GoogleProvider.defaultApiKeyName,
-    caps: {
-      ProviderCaps.chat,
-      ProviderCaps.embeddings,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.chatVision,
-    },
-  );
+  ///
+  /// Uses Gemini-specific heuristics for capability detection since
+  /// OpenAI heuristics don't work for Gemini model names.
+  static GoogleOpenAIProvider get googleOpenAI =>
+      _googleOpenAI ??= GoogleOpenAIProvider();
 
   /// Google Gemini native provider (uses Gemini API, not OpenAI-compatible).
   static GoogleProvider get google => _google ??= GoogleProvider();
@@ -110,15 +94,9 @@ class Providers {
   static OllamaProvider get ollama => _ollama ??= OllamaProvider();
 
   /// OpenAI-compatible Ollama provider (local, uses /v1 endpoint). No API key
-  /// required. Vision models like llava are available.
-  static OpenAIProvider get ollamaOpenAI => _ollamaOpenAI ??= OpenAIProvider(
-    name: 'ollama-openai',
-    displayName: 'Ollama (OpenAI-compatible)',
-    defaultModelNames: {ModelKind.chat: 'llama3.2'},
-    baseUrl: Uri.parse('http://localhost:11434/v1'),
-    apiKeyName: null,
-    caps: {ProviderCaps.chat},
-  );
+  /// required. Uses Ollama's native /api/show endpoint for capability detection.
+  static OllamaOpenAIProvider get ollamaOpenAI =>
+      _ollamaOpenAI ??= OllamaOpenAIProvider();
 
   /// Returns a list of all available providers (static fields above).
   ///

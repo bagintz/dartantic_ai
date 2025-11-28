@@ -95,58 +95,60 @@ class OllamaProvider
   }) => throw Exception('Ollama does not support embeddings models');
 
   @override
-  Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) async {
-    try {
-      final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
-      final url = appendPath(resolvedBaseUrl, 'show');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'name': modelName}),
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+    final url = appendPath(resolvedBaseUrl, 'show');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'name': modelName}),
+    );
+
+    if (response.statusCode != 200) {
+      _logger.warning(
+        'Failed to get model details for $modelName: '
+        'HTTP ${response.statusCode}',
       );
-
-      if (response.statusCode != 200) {
-        _logger.warning(
-          'Failed to get model details for $modelName: '
-          'HTTP ${response.statusCode}',
-        );
-        return null;
-      }
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      
-      final caps = <ModelCaps>[]; // Start with empty list
-
-      // Check if the API provides explicit capabilities
-      final apiCapabilities = data['capabilities'] as List?;
-      if (apiCapabilities != null) {
-        // Map Ollama's capabilities to our ModelCaps
-        for (final cap in apiCapabilities.cast<String>()) {
-          switch (cap.toLowerCase()) {
-            case 'completion':
-            case 'insert':
-              // Both completion and insert are text generation capabilities
-              caps.add(ModelCaps.chat);
-            case 'vision':
-              caps.add(ModelCaps.chatVision);
-            case 'tools':
-              caps.add(ModelCaps.multiToolCalls);
-              caps.add(ModelCaps.typedOutput);
-              caps.add(ModelCaps.typedOutputWithTools);
-            case 'thinking':
-              caps.add(ModelCaps.thinking);
-            case 'embedding':
-            case 'embeddings':
-              caps.add(ModelCaps.embeddings);
-          }
-        }
-      }
-
-      return caps;
-    } on Exception catch (e) {
-      _logger.warning('Error fetching model caps for $modelName: $e');
       return null;
     }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+    final caps = <ModelCaps>{};
+
+    // Ollama's /api/show endpoint returns a 'capabilities' array with values:
+    // - "completion": text generation
+    // - "insert": fill-in-the-middle (also text generation)
+    // - "vision": image input support
+    // - "tools": function/tool calling
+    // - "thinking": reasoning/chain-of-thought
+    // - "embedding": text embeddings
+    final apiCapabilities = data['capabilities'] as List?;
+    if (apiCapabilities != null) {
+      for (final cap in apiCapabilities.cast<String>()) {
+        switch (cap.toLowerCase()) {
+          case 'completion':
+          case 'insert':
+            caps.add(ModelCaps.chat);
+          case 'vision':
+            caps.add(ModelCaps.chatVision);
+          case 'tools':
+            caps.add(ModelCaps.multiToolCalls);
+            caps.add(ModelCaps.typedOutput);
+            caps.add(ModelCaps.typedOutputWithTools);
+          case 'thinking':
+            caps.add(ModelCaps.thinking);
+          case 'embedding':
+          case 'embeddings':
+            caps.add(ModelCaps.embeddings);
+        }
+      }
+    }
+
+    return caps.toList();
   }
 
   @override
