@@ -111,6 +111,67 @@ class OllamaProvider
   }) => throw Exception('Ollama does not support embeddings models');
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+    final url = appendPath(resolvedBaseUrl, 'show');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'name': modelName}),
+    );
+
+    if (response.statusCode != 200) {
+      _logger.warning(
+        'Failed to get model details for $modelName: '
+        'HTTP ${response.statusCode}',
+      );
+      return null;
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final caps = <ModelCaps>{};
+
+    // Ollama's /api/show endpoint returns a 'capabilities' array with values:
+    // - "completion": text generation
+    // - "insert": fill-in-the-middle (also text generation)
+    // - "vision": image input support
+    // - "tools": function/tool calling
+    // - "thinking": reasoning/chain-of-thought
+    // - "embedding": text embeddings
+    final apiCapabilities = data['capabilities'] as List?;
+    if (apiCapabilities != null) {
+      for (final cap in apiCapabilities.cast<String>()) {
+        switch (cap.toLowerCase()) {
+          case 'completion':
+          case 'insert':
+            caps.add(ModelCaps.chat);
+            break;
+          case 'vision':
+            caps.add(ModelCaps.chatVision);
+            break;
+          case 'tools':
+            caps.add(ModelCaps.multiToolCalls);
+            caps.add(ModelCaps.typedOutput);
+            caps.add(ModelCaps.typedOutputWithTools);
+            break;
+          case 'thinking':
+            caps.add(ModelCaps.thinking);
+            break;
+          case 'embedding':
+          case 'embeddings':
+            caps.add(ModelCaps.embeddings);
+            break;
+        }
+      }
+    }
+
+    return caps.toList();
+  }
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'tags');
@@ -147,6 +208,7 @@ class OllamaProvider
           kinds: {ModelKind.chat},
           displayName: name,
           description: description,
+          caps: await getModelCaps(id, m),
           extra: {...m}..removeWhere((k, _) => ['name', 'details'].contains(k)),
         );
       }
