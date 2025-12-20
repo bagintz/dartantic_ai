@@ -1,17 +1,22 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:json_schema/json_schema.dart';
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
 
-class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+class DummyProvider
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   DummyProvider()
     : super(
         name: 'dummy',
         displayName: 'Dummy',
         defaultModelNames: const {ModelKind.chat: 'test-model'},
-        caps: const {ProviderCaps.chat},
       );
 
   DummyChatModel? lastModel;
@@ -21,6 +26,7 @@ class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) {
     lastModel = DummyChatModel(
@@ -42,6 +48,14 @@ class DummyProvider extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
 
   @override
   Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+
+  @override
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) =>
+      throw UnsupportedError('Media generation not supported in DummyProvider');
 }
 
 class DummyChatModel extends ChatModel<ChatModelOptions> {
@@ -99,7 +113,12 @@ class DummyChatModel extends ChatModel<ChatModelOptions> {
 
 // Wrapper around real providers to avoid network; returns in-memory model
 class WrapperProvider
-    extends Provider<ChatModelOptions, EmbeddingsModelOptions> {
+    extends
+        Provider<
+          ChatModelOptions,
+          EmbeddingsModelOptions,
+          MediaGenerationModelOptions
+        > {
   WrapperProvider(Provider base)
     : super(
         name: 'wrap-${base.name}',
@@ -107,7 +126,6 @@ class WrapperProvider
         defaultModelNames: {
           ModelKind.chat: base.defaultModelNames[ModelKind.chat] ?? 'model',
         },
-        caps: base.caps,
         aliases: base.aliases,
       );
 
@@ -118,6 +136,7 @@ class WrapperProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     ChatModelOptions? options,
   }) => lastModel = DummyModel(name: name ?? 'model');
 
@@ -131,7 +150,15 @@ class WrapperProvider
   Stream<ModelInfo> listModels() async* {}
 
   @override
+<<<<<<< HEAD
   Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
+=======
+  MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    MediaGenerationModelOptions? options,
+  }) => throw UnsupportedError('Media not supported in WrapperProvider');
+>>>>>>> upstream/main
 }
 
 class DummyModel extends ChatModel<ChatModelOptions> {
@@ -269,7 +296,7 @@ void main() {
         );
         expect(lastMsg.parts, isEmpty, reason: 'provider=${provider.name}');
       },
-      requiredCaps: {ProviderCaps.chat, ProviderCaps.multiToolCalls},
+      requiredCaps: {ProviderTestCaps.chat, ProviderTestCaps.multiToolCalls},
     );
 
     final outputSchema = JsonSchema.create({
@@ -305,7 +332,7 @@ void main() {
         );
         expect(lastMsg.parts, isEmpty, reason: 'provider=${provider.name}');
       },
-      requiredCaps: {ProviderCaps.chat, ProviderCaps.multiToolCalls},
+      requiredCaps: {ProviderTestCaps.chat, ProviderTestCaps.multiToolCalls},
     );
   });
 }

@@ -2,12 +2,11 @@ import '../chat/chat_model.dart';
 import '../chat/chat_model_options.dart';
 import '../embeddings/embeddings_model.dart';
 import '../embeddings/embeddings_model_options.dart';
+import '../media/media_generation_model.dart';
+import '../media/media_generation_model_options.dart';
 import '../model/model.dart';
 import '../model/model_caps.dart';
 import '../tool.dart';
-import 'provider_caps.dart';
-
-export 'provider_caps.dart';
 
 /// Static cache for model capabilities across all providers.
 final _modelCapsCache = <String, List<ModelCaps>?>{};
@@ -26,7 +25,8 @@ final _modelCapsCache = <String, List<ModelCaps>?>{};
 /// used to create a chat model or an embeddings model.
 abstract class Provider<
   TChatOptions extends ChatModelOptions,
-  TEmbeddingsOptions extends EmbeddingsModelOptions
+  TEmbeddingsOptions extends EmbeddingsModelOptions,
+  TMediaOptions extends MediaGenerationModelOptions
 > {
   /// Creates a new provider instance.
   ///
@@ -37,15 +37,16 @@ abstract class Provider<
   /// - [baseUrl]: The default API endpoint.
   /// - [apiKeyName]: The environment variable for the API key (if any).
   /// - [aliases]: Alternative names for lookup.
+  /// - [headers]: Custom HTTP headers to include with all API requests.
   const Provider({
     required this.name,
     required this.displayName,
     required this.defaultModelNames,
-    required this.caps,
     this.apiKey,
     this.baseUrl,
     this.apiKeyName,
     this.aliases = const [],
+    this.headers = const {},
   });
 
   /// The canonical provider name (e.g., 'openai', 'ollama').
@@ -69,8 +70,10 @@ abstract class Provider<
   /// The environment variable for the API key (if any).
   final String? apiKeyName;
 
-  /// The capabilities of this provider.
-  final Set<ProviderCaps> caps;
+  /// Custom HTTP headers to include with all API requests.
+  ///
+  /// These headers will override internal headers if there's a conflict.
+  final Map<String, String> headers;
 
   /// Returns all available models for this provider.
   ///
@@ -114,6 +117,7 @@ abstract class Provider<
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     TChatOptions? options,
   });
 
@@ -121,5 +125,12 @@ abstract class Provider<
   EmbeddingsModel<TEmbeddingsOptions> createEmbeddingsModel({
     String? name,
     TEmbeddingsOptions? options,
+  });
+
+  /// Creates a media generation model instance for this provider.
+  MediaGenerationModel<TMediaOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    TMediaOptions? options,
   });
 }

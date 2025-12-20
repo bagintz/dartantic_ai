@@ -15,7 +15,7 @@
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:dartantic_ai/src/chat_models/helpers/tool_id_helpers.dart';
-import 'package:dartantic_interface/dartantic_interface.dart';
+
 import 'package:test/test.dart';
 
 import 'test_helpers/run_provider_test.dart';
@@ -90,23 +90,6 @@ void main() {
         expect(ToolIdHelpers.isValidToolCallId('simple-id'), isTrue);
         // Empty is invalid
         expect(ToolIdHelpers.isValidToolCallId(''), isFalse);
-      });
-
-      test('extractToolNameFromId returns null (IDs are opaque)', () {
-        // Tool IDs are opaque - we don't extract info from them
-        expect(ToolIdHelpers.extractToolNameFromId('any-id-format'), isNull);
-        expect(
-          ToolIdHelpers.extractToolNameFromId(
-            'tool_openai_weather_tool_abc123',
-          ),
-          isNull,
-        );
-        expect(
-          ToolIdHelpers.extractToolNameFromId(
-            'a2e46fb8-4c8e-4200-a995-ceb84b9f812d',
-          ),
-          isNull,
-        );
       });
 
       test('assigns IDs to tool calls without them', () {
@@ -328,7 +311,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 3)),
       );
 
@@ -389,7 +372,7 @@ void main() {
             );
           }
         },
-        requiredCaps: {ProviderCaps.multiToolCalls},
+        requiredCaps: {ProviderTestCaps.multiToolCalls},
         timeout: const Timeout(Duration(minutes: 2)),
       );
     });

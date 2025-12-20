@@ -9,9 +9,11 @@ Dartantic is an agentic AI framework for Dart that provides easy integration wit
 The project is organized as a monorepo with multiple packages:
 - `packages/dartantic_interface/` - Core interfaces and types shared across all Dartantic packages
 - `packages/dartantic_ai/` - Main implementation with provider integrations (primary development focus)
+- `samples/dartantic_cli/` - Command-line interface for the Dartantic framework
 
 ## Documentation
 
+- **External Docs**: Full documentation at [docs.dartantic.ai](https://docs.dartantic.ai)
 - **Wiki Documentation**: The `wiki/` folder contains comprehensive architecture documentation. See `wiki/Home.md` for the complete index of design documents, specifications, and implementation guides.
 - **Design documents should NOT include code implementations** - Specifications in the `wiki/` folder should describe algorithms, data flow, and architecture without including actual code, as code in documentation immediately goes stale. Implementation details belong in the code itself, not in design docs.
 
@@ -49,6 +51,15 @@ cd packages/dartantic_ai && dart run example/bin/typed_output.dart
 cd packages/dartantic_ai && dart run example/bin/tool_calling.dart
 ```
 
+### Debugging
+```bash
+# Enable detailed logging via environment variable
+DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+
+# Log levels: SEVERE, WARNING, INFO, FINE (most verbose)
+DARTANTIC_LOG_LEVEL=INFO dart test test/specific_test.dart
+```
+
 ### Package Management
 ```bash
 # Get dependencies
@@ -56,6 +67,24 @@ cd packages/dartantic_ai && dart pub get
 
 # Upgrade dependencies
 cd packages/dartantic_ai && dart pub upgrade
+```
+
+### Dartantic CLI Development
+```bash
+# Run the CLI (from samples/dartantic_cli directory)
+cd samples/dartantic_cli && dart run bin/dartantic.dart -p "Hello"
+
+# Run CLI tests
+cd samples/dartantic_cli && dart test
+
+# Run a single CLI test
+cd samples/dartantic_cli && dart test test/cli_test.dart
+
+# Run all CLI example scripts
+cd samples/dartantic_cli && bash example/run_all.sh
+
+# Run a single example
+cd samples/dartantic_cli && bash example/basic/simple_chat.sh
 ```
 
 ## Architecture
@@ -133,14 +162,46 @@ The Agent accepts flexible model string formats:
 
 Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 
+### Dartantic CLI Architecture
+
+The CLI (`samples/dartantic_cli/`) exposes Dartantic framework functionality via command line:
+
+- **Commands**: `chat` (default), `generate`, `embed`, `models`
+- **Entry Point**: `bin/dartantic.dart` → `DartanticCommandRunner` in `lib/src/runner.dart`
+- **Key Components**:
+  - `SettingsLoader` - Loads and validates `~/.dartantic/settings.yaml`
+  - `PromptProcessor` - Handles `@filename` attachments and `.prompt` dotprompt templates
+  - `Chunker` - Text chunking for embeddings
+  - `McpToolCollector` - MCP server tool integration
+
+**Agent Resolution**: CLI agent names can be:
+1. Built-in provider names (e.g., `google`, `anthropic`, `openai`)
+2. Custom agents defined in `~/.dartantic/settings.yaml`
+3. Model strings (e.g., `openai:gpt-4o`, `anthropic/claude-sonnet-4-20250514`)
+
+See `wiki/CLI-Spec.md` for complete specification including exit codes, settings schema, and test scenarios.
+
 ## Testing Strategy
 
 - **ALWAYS check for existing tests before creating new ones** - Search the test directory for related tests using grep/glob before creating new test files. Update existing tests rather than duplicating functionality.
-- Tests use `validateMessageHistory()` helper (in `test/test_utils.dart`) to ensure proper message alternation (user/model/user/model)
 - Integration tests connect to actual providers when API keys are available (from environment variables or `~/global_env.sh`)
 - Mock tools and utilities in `test/test_tools.dart` and `test/test_utils.dart`
-- Capability-based provider filtering ensures tests only run against providers that support required features
 - Focus on 80% cases; edge cases are documented but not exhaustively tested
+
+### Capability-Based Provider Filtering
+
+Tests use `requiredCaps` to filter providers by capability. This ensures tests only run against providers that support required features. The test infrastructure uses `ProviderTestCaps` (a test-only enum in `test/test_helpers/run_provider_test.dart`) to describe what capabilities each provider's default model supports:
+
+```dart
+// In test files, use runProviderTest with requiredCaps:
+runProviderTest(
+  'test description',
+  (provider) async { /* test code */ },
+  requiredCaps: {ProviderTestCaps.multiToolCalls},
+);
+```
+
+See `ProviderTestCaps` in `test/test_helpers/run_provider_test.dart` for test capabilities. For runtime capability discovery, use `Provider.listModels()`.
 
 ## Configuration
 
@@ -158,17 +219,17 @@ Parsed via `ModelStringParser` in `lib/src/agent/model_string_parser.dart`.
 ### Adding New Providers
 
 1. Create provider class in `lib/src/providers/` extending `Provider`
-2. Declare capabilities accurately (see `ProviderCaps` enum)
-3. Implement `createChatModel()` and optionally `createEmbeddingsModel()`
-4. Create chat model in `lib/src/chat_models/<provider>_chat/`
-5. Implement message mappers in `<provider>_message_mappers.dart`
-6. Add provider to `Providers.get()` registry in `lib/src/providers/providers.dart`
+2. Implement `createChatModel()` and optionally `createEmbeddingsModel()`
+3. Create chat model in `lib/src/chat_models/<provider>_chat/`
+4. Implement message mappers in `<provider>_message_mappers.dart`
+5. Register provider factory in `Agent.providerFactories` in `lib/src/agent/agent.dart`
+6. Add provider's test capabilities to `providerTestCaps` map in `test/test_helpers/run_provider_test.dart`
 7. Create tests following existing patterns in `test/`
 
 ### Provider Structure
 
 Each provider implementation includes:
-- Provider factory class with capability declarations
+- Provider factory class
 - Chat model with streaming support
 - Message mappers for bidirectional conversion
 - Options class for provider-specific configuration

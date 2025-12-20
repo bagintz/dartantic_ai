@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;
@@ -12,38 +10,43 @@ import '../agent/orchestrators/streaming_orchestrator.dart';
 import '../chat_models/google_chat/google_chat_model.dart';
 import '../chat_models/google_chat/google_chat_options.dart';
 import '../chat_models/google_chat/google_double_agent_orchestrator.dart';
+import '../chat_models/google_chat/google_server_side_tools.dart';
 import '../custom_http_client.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model.dart';
 import '../embeddings_models/google_embeddings/google_embeddings_model_options.dart';
+import '../media_gen_models/google/google_media_gen_model.dart';
+import '../media_gen_models/google/google_media_gen_model_options.dart';
 import '../platform/platform.dart';
 import '../retry_http_client.dart';
 import 'chat_orchestrator_provider.dart';
 import 'google_api_utils.dart';
 
+const String _defaultChatModelName = 'gemini-2.5-flash';
+const String _defaultEmbeddingsModelName = 'text-embedding-004';
+const String _defaultMediaModelName = 'gemini-2.5-flash-image';
+
 /// Provider for Google Gemini native API.
 class GoogleProvider
-    extends Provider<GoogleChatModelOptions, GoogleEmbeddingsModelOptions>
+    extends
+        Provider<
+          GoogleChatModelOptions,
+          GoogleEmbeddingsModelOptions,
+          GoogleMediaGenerationModelOptions
+        >
     implements ChatOrchestratorProvider {
   /// Creates a new Google AI provider instance.
   ///
   /// [apiKey]: The API key to use for the Google AI API.
-  GoogleProvider({String? apiKey, super.baseUrl})
+  GoogleProvider({String? apiKey, super.baseUrl, super.headers})
     : super(
         apiKey: apiKey ?? tryGetEnv(defaultApiKeyName),
         apiKeyName: defaultApiKeyName,
         name: 'google',
         displayName: 'Google',
         defaultModelNames: {
-          ModelKind.chat: 'gemini-2.5-flash',
-          ModelKind.embeddings: 'models/text-embedding-004',
-        },
-        caps: {
-          ProviderCaps.chat,
-          ProviderCaps.embeddings,
-          ProviderCaps.multiToolCalls,
-          ProviderCaps.typedOutput,
-          ProviderCaps.typedOutputWithTools,
-          ProviderCaps.chatVision,
+          ModelKind.chat: _defaultChatModelName,
+          ModelKind.embeddings: _defaultEmbeddingsModelName,
+          ModelKind.media: _defaultMediaModelName,
         },
         aliases: const ['gemini'],
       );
@@ -77,7 +80,7 @@ class GoogleProvider
     String? name,
     List<Tool>? tools,
     double? temperature,
-    bool? enableThinking,
+    bool enableThinking = false,
     GoogleChatModelOptions? options,
   }) {
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
@@ -96,8 +99,10 @@ class GoogleProvider
       name: modelName,
       tools: tools,
       temperature: temperature,
+      enableThinking: enableThinking,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
+      headers: headers,
       defaultOptions: GoogleChatModelOptions(
         topP: options?.topP,
         topK: options?.topK,
@@ -108,7 +113,8 @@ class GoogleProvider
         responseMimeType: options?.responseMimeType,
         responseSchema: options?.responseSchema,
         safetySettings: options?.safetySettings,
-        enableCodeExecution: options?.enableCodeExecution,
+        thinkingBudgetTokens: options?.thinkingBudgetTokens,
+        serverSideTools: options?.serverSideTools,
       ),
     );
   }
@@ -129,107 +135,11 @@ class GoogleProvider
       name: modelName,
       apiKey: apiKey!,
       baseUrl: baseUrl ?? defaultBaseUrl,
+      headers: headers,
+      dimensions: options?.dimensions,
+      batchSize: options?.batchSize,
       options: options,
     );
-  }
-
-  @override
-  Future<List<ModelCaps>?> fetchModelCaps(
-    String modelName, [
-    Map<String, dynamic>? modelData,
-  ]) async {
-    // If modelData is provided (from listModels), use it directly
-    if (modelData != null && modelData.isNotEmpty) {
-      return _parseModelCaps(modelData);
-    }
-
-    try {
-      final resolvedApiKey = apiKey ?? tryGetEnv(defaultApiKeyName);
-      if (resolvedApiKey == null || resolvedApiKey.isEmpty) {
-        _logger.warning('No API key available for fetching model caps');
-        return null;
-      }
-
-      final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
-
-      // Normalize model name to include 'models/' prefix if needed
-      final normalizedName = modelName.startsWith('models/')
-          ? modelName
-          : 'models/$modelName';
-
-      // Call Google's models.get REST endpoint
-      final baseUrlStr = resolvedBaseUrl.toString();
-      final url = Uri.parse('$baseUrlStr$normalizedName')
-          .replace(queryParameters: {'key': resolvedApiKey});
-
-      final response = await http.get(url);
-
-      if (response.statusCode != 200) {
-        _logger.warning(
-          'Failed to get model details for $modelName: '
-          'HTTP ${response.statusCode}',
-        );
-        return null;
-      }
-
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return _parseModelCaps(data);
-    } on Exception catch (e) {
-      _logger.warning('Error fetching model caps for $modelName: $e');
-      return null;
-    }
-  }
-
-  /// Parses model capabilities from the Google API response.
-  List<ModelCaps> _parseModelCaps(Map<String, dynamic> data) {
-    final caps = <ModelCaps>[];
-
-    // Parse supportedGenerationMethods
-    final methods =
-        (data['supportedGenerationMethods'] as List?)?.cast<String>() ?? [];
-    final lowerMethods = methods.map((m) => m.toLowerCase()).toList();
-
-    // Method-based capabilities
-    if (lowerMethods.any((m) => m.contains('generatecontent'))) {
-      caps.add(ModelCaps.chat);
-    }
-    if (lowerMethods.any((m) => m.contains('embed'))) {
-      caps.add(ModelCaps.embeddings);
-    }
-    if (lowerMethods.any((m) => m.contains('counttokens'))) {
-      caps.add(ModelCaps.countTokens);
-    }
-    if (lowerMethods.any((m) => m.contains('bidigeneratecontent'))) {
-      caps.add(ModelCaps.audio);
-    }
-    if (lowerMethods.any((m) => m.contains('predict'))) {
-      caps.add(ModelCaps.image);
-    }
-
-    // Check for thinking capability (explicit boolean field from API)
-    if (data['thinking'] as bool? ?? false) {
-      caps.add(ModelCaps.thinking);
-    }
-
-    // Check for vision/multimodal capability via description heuristics
-    final description = (data['description'] as String? ?? '').toLowerCase();
-    final name = (data['name'] as String? ?? '').toLowerCase();
-    if (description.contains('multimodal') ||
-        description.contains('image') ||
-        description.contains('vision') ||
-        name.contains('vision')) {
-      caps.add(ModelCaps.chatVision);
-    }
-
-    // For chat-capable Gemini models, add tool calling and typed output
-    // (Google Gemini supports these for all chat models)
-    if (caps.contains(ModelCaps.chat) && !caps.contains(ModelCaps.embeddings)) {
-      caps.add(ModelCaps.multiToolCalls);
-      caps.add(ModelCaps.typedOutput);
-      caps.add(ModelCaps.typedOutputWithTools);
-    }
-
-    return caps;
   }
 
   @override
@@ -239,7 +149,7 @@ class GoogleProvider
     final client = CustomHttpClient(
       baseHttpClient: RetryHttpClient(inner: http.Client()),
       baseUrl: resolvedBaseUrl,
-      headers: {'x-goog-api-key': apiKey},
+      headers: {'x-goog-api-key': apiKey, ...headers},
       queryParams: const {},
     );
 
@@ -248,19 +158,19 @@ class GoogleProvider
       String? pageToken;
       do {
         final response = await service.listModels(
-          gl.ListModelsRequest(pageSize: 1000, pageToken: pageToken),
+          gl.ListModelsRequest(pageSize: 1000, pageToken: pageToken ?? ''),
         );
-        final models = response.models ?? const <gl.Model>[];
+        final models = response.models;
         _logger.info(
           'Fetched ${models.length} models from Google API '
           '(pageToken: ${pageToken ?? 'start'})',
         );
         for (final model in models) {
-          final info = await _mapModel(model);
+          final info = _mapModel(model);
           if (info != null) yield info;
         }
         pageToken = response.nextPageToken;
-      } while (pageToken?.isNotEmpty ?? false);
+      } while (pageToken.isNotEmpty);
     } catch (error, stackTrace) {
       _logger.warning(
         'Failed to fetch models from Google API',
@@ -273,15 +183,72 @@ class GoogleProvider
     }
   }
 
-  Future<ModelInfo?> _mapModel(gl.Model model) async {
+  @override
+  MediaGenerationModel<GoogleMediaGenerationModelOptions> createMediaModel({
+    String? name,
+    List<Tool>? tools,
+    GoogleMediaGenerationModelOptions? options,
+  }) {
+    final modelName = name ?? _defaultMediaModelName;
+    final resolvedOptions =
+        options ?? const GoogleMediaGenerationModelOptions();
+
+    _logger.info(
+      'Creating Google media model: $modelName '
+      'with ${(tools ?? const []).length} tools',
+    );
+
+    if (apiKeyName != null && (apiKey == null || apiKey!.isEmpty)) {
+      throw ArgumentError('$apiKeyName is required for $displayName provider');
+    }
+
+    final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+
+    // Create the GenerativeService for native image generation (Imagen)
+    final httpClient = CustomHttpClient(
+      baseHttpClient: RetryHttpClient(inner: http.Client()),
+      baseUrl: resolvedBaseUrl,
+      headers: {'x-goog-api-key': apiKey!, ...headers},
+      queryParams: const {},
+    );
+    final service = gl.GenerativeService(client: httpClient);
+
+    // Create chat model with code execution for non-image file generation
+    final chatOptions = GoogleChatModelOptions(
+      temperature: resolvedOptions.temperature,
+      topP: resolvedOptions.topP,
+      topK: resolvedOptions.topK,
+      maxOutputTokens: resolvedOptions.maxOutputTokens,
+      safetySettings: resolvedOptions.safetySettings,
+      serverSideTools: const {GoogleServerSideTool.codeExecution},
+    );
+
+    final chatModel = GoogleChatModel(
+      name: _defaultChatModelName, // Use chat model for code execution
+      apiKey: apiKey!,
+      baseUrl: resolvedBaseUrl,
+      headers: headers,
+      tools: tools,
+      defaultOptions: chatOptions,
+    );
+
+    return GoogleMediaGenerationModel(
+      name: modelName,
+      service: service,
+      chatModel: chatModel,
+      defaultOptions: resolvedOptions,
+    );
+  }
+
+  ModelInfo? _mapModel(gl.Model model) {
     final id = model.name;
-    if (id == null || id.isEmpty) {
+    if (id.isEmpty) {
       _logger.warning('Skipping model with missing name: $model');
       return null;
     }
 
-    final description = model.description ?? '';
-    final methods = (model.supportedGenerationMethods ?? const [])
+    final description = model.description;
+    final methods = model.supportedGenerationMethods
         .map((method) => method.toLowerCase())
         .toList(growable: false);
 
@@ -310,7 +277,7 @@ class GoogleProvider
     }
 
     final lowerId = id.toLowerCase();
-    final lowerBase = (model.baseModelId ?? '').toLowerCase();
+    final lowerBase = model.baseModelId.toLowerCase();
     final lowerDescription = description.toLowerCase();
 
     bool contains(String value) =>
@@ -332,26 +299,15 @@ class GoogleProvider
     if (kinds.isEmpty) kinds.add(ModelKind.other);
 
     final extra = <String, dynamic>{
-      if (model.baseModelId != null) 'baseModelId': model.baseModelId,
-      if (model.version != null) 'version': model.version,
-      if (model.inputTokenLimit != null) 'contextWindow': model.inputTokenLimit,
-      if (model.outputTokenLimit != null)
-        'outputTokenLimit': model.outputTokenLimit,
-      if (model.supportedGenerationMethods != null)
-        'supportedGenerationMethods': model.supportedGenerationMethods,
+      'baseModelId': model.baseModelId,
+      'version': model.version,
+      'contextWindow': model.inputTokenLimit,
+      'outputTokenLimit': model.outputTokenLimit,
+      'supportedGenerationMethods': model.supportedGenerationMethods,
       if (model.temperature != null) 'temperature': model.temperature,
       if (model.maxTemperature != null) 'maxTemperature': model.maxTemperature,
       if (model.topP != null) 'topP': model.topP,
       if (model.topK != null) 'topK': model.topK,
-      if (model.thinking != null) 'thinking': model.thinking,
-    };
-
-    // Build model data map for getModelCaps (includes thinking field)
-    final modelData = <String, dynamic>{
-      'name': id,
-      'description': description,
-      'supportedGenerationMethods': model.supportedGenerationMethods,
-      if (model.thinking != null) 'thinking': model.thinking,
     };
 
     return ModelInfo(
@@ -360,7 +316,6 @@ class GoogleProvider
       kinds: kinds,
       displayName: model.displayName,
       description: description.isNotEmpty ? description : null,
-      caps: await getModelCaps(id, modelData),
       extra: extra,
     );
   }

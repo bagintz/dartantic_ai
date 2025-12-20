@@ -25,3 +25,6 @@ download/
 packages/dartantic_ai/test/.env
 .env
 *.env
+
+# IDE files
+.idea/
