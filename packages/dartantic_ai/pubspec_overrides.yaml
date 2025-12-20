@@ -1,0 +1,3 @@
+dependency_overrides:
+  dartantic_interface:
+    path: ../dartantic_interface

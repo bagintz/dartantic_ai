@@ -110,6 +110,60 @@ class AnthropicProvider
   }) => throw Exception('Anthropic does not support embeddings models');
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    // Anthropic's /v1/models endpoint only returns basic metadata (id, type,
+    // display_name, created_at) - no capability information. We use heuristics
+    // based on model ID patterns.
+    final id = modelName.toLowerCase();
+    final caps = <ModelCaps>{};
+
+    // All Claude models are chat models with vision, tools, and typed output
+    if (id.startsWith('claude')) {
+      caps.add(ModelCaps.chat);
+      caps.add(ModelCaps.chatVision);
+      caps.add(ModelCaps.multiToolCalls);
+      caps.add(ModelCaps.typedOutput);
+      caps.add(ModelCaps.typedOutputWithTools);
+
+      // Extended thinking support for Claude 3.5+ and Claude 4+
+      // Claude 3.5 Sonnet (claude-3-5-sonnet) and all Claude 4+ models
+      // Pattern: claude-3-5-*, claude-3.5-*, claude-3.7-*, claude-4*,
+      //          claude-sonnet-4*, claude-opus-4*, claude-haiku-4*
+      if (_supportsThinking(id)) {
+        caps.add(ModelCaps.thinking);
+      }
+
+      return caps.toList();
+    }
+
+    // Unknown Anthropic model - return empty capabilities
+    return caps.toList();
+  }
+
+  /// Determines if a Claude model supports extended thinking.
+  ///
+  /// Thinking is supported on:
+  /// - Claude 3.5 Sonnet and newer (claude-3-5-sonnet, claude-3.5-sonnet)
+  /// - Claude 3.7 models (claude-3.7-sonnet, claude-3-7-sonnet)
+  /// - All Claude 4+ models (claude-4, claude-sonnet-4, claude-opus-4, etc.)
+  static bool _supportsThinking(String id) {
+    // Claude 4+ models (various naming patterns)
+    // claude-4, claude-sonnet-4, claude-opus-4, claude-haiku-4
+    if (RegExp('claude-[a-z]*-?4').hasMatch(id)) return true;
+
+    // Claude 3.5+ models (claude-3-5-sonnet, claude-3.5-sonnet)
+    if (id.contains('claude-3-5') || id.contains('claude-3.5')) return true;
+
+    // Claude 3.7 models (claude-3-7-sonnet, claude-3.7-sonnet)
+    if (id.contains('claude-3-7') || id.contains('claude-3.7')) return true;
+
+    return false;
+  }
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
     final url = appendPath(resolvedBaseUrl, 'models');
