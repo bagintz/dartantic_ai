@@ -143,6 +143,103 @@ class GoogleProvider
   }
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    // If modelData is provided (from listModels), use it directly
+    if (modelData != null && modelData.isNotEmpty) {
+      return _parseModelCaps(modelData);
+    }
+
+    try {
+      final resolvedApiKey = apiKey ?? tryGetEnv(defaultApiKeyName);
+      if (resolvedApiKey == null || resolvedApiKey.isEmpty) {
+        _logger.warning('No API key available for fetching model caps');
+        return null;
+      }
+
+      final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
+
+      // Normalize model name to include 'models/' prefix if needed
+      final normalizedName = modelName.startsWith('models/')
+          ? modelName
+          : 'models/$modelName';
+
+      // Call Google's models.get REST endpoint
+      final baseUrlStr = resolvedBaseUrl.toString();
+      final url = Uri.parse('$baseUrlStr$normalizedName')
+          .replace(queryParameters: {'key': resolvedApiKey});
+
+      final response = await http.get(url);
+
+      if (response.statusCode != 200) {
+        _logger.warning(
+          'Failed to get model details for $modelName: '
+          'HTTP ${response.statusCode}',
+        );
+        return null;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return _parseModelCaps(data);
+    } on Exception catch (e) {
+      _logger.warning('Error fetching model caps for $modelName: $e');
+      return null;
+    }
+  }
+
+  List<ModelCaps> _parseModelCaps(Map<String, dynamic> data) {
+    final caps = <ModelCaps>[];
+
+    // Parse supportedGenerationMethods
+    final methods =
+        (data['supportedGenerationMethods'] as List?)?.cast<String>() ?? [];
+    final lowerMethods = methods.map((m) => m.toLowerCase()).toList();
+
+    // Method-based capabilities
+    if (lowerMethods.any((m) => m.contains('generatecontent'))) {
+      caps.add(ModelCaps.chat);
+    }
+    if (lowerMethods.any((m) => m.contains('embed'))) {
+      caps.add(ModelCaps.embeddings);
+    }
+    if (lowerMethods.any((m) => m.contains('counttokens'))) {
+      caps.add(ModelCaps.countTokens);
+    }
+    if (lowerMethods.any((m) => m.contains('bidigeneratecontent'))) {
+      caps.add(ModelCaps.audio);
+    }
+    if (lowerMethods.any((m) => m.contains('predict'))) {
+      caps.add(ModelCaps.image);
+    }
+
+    // Check for thinking capability (explicit boolean field from API)
+    if (data['thinking'] as bool? ?? false) {
+      caps.add(ModelCaps.thinking);
+    }
+
+    // Check for vision/multimodal capability via description heuristics
+    final description = (data['description'] as String? ?? '').toLowerCase();
+    final name = (data['name'] as String? ?? '').toLowerCase();
+    if (description.contains('multimodal') ||
+        description.contains('image') ||
+        description.contains('vision') ||
+        name.contains('vision')) {
+      caps.add(ModelCaps.chatVision);
+    }
+
+    // For chat-capable Gemini models, add tool calling and typed output
+    if (caps.contains(ModelCaps.chat) && !caps.contains(ModelCaps.embeddings)) {
+      caps.add(ModelCaps.multiToolCalls);
+      caps.add(ModelCaps.typedOutput);
+      caps.add(ModelCaps.typedOutputWithTools);
+    }
+
+    return caps;
+  }
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final apiKey = this.apiKey ?? getEnv(defaultApiKeyName);
     final resolvedBaseUrl = baseUrl ?? defaultBaseUrl;
