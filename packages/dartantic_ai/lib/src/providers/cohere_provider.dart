@@ -92,6 +92,51 @@ class CohereProvider extends OpenAIProvider {
   }
 
   @override
+  Future<List<ModelCaps>?> fetchModelCaps(
+    String modelName, [
+    Map<String, dynamic>? modelData,
+  ]) async {
+    // If we already have model data (from listModels), use it directly
+    if (modelData != null) {
+      return _extractCapsFromModelData(modelData);
+    }
+
+    // Otherwise, fetch from native Cohere API which returns rich capability data
+    final url = Uri.parse('https://api.cohere.com/v1/models');
+    _logger.info('Fetching model capabilities from Cohere API: $url');
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $apiKey'},
+    );
+
+    if (response.statusCode != 200) {
+      _logger.warning(
+        'Failed to fetch models: HTTP ${response.statusCode}, '
+        'body: ${response.body}',
+      );
+      // Fall back to heuristics
+      return _heuristicCaps(modelName);
+    }
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final modelsList = data['models'] as List?;
+    if (modelsList == null) {
+      return _heuristicCaps(modelName);
+    }
+
+    // Find the matching model
+    for (final m in modelsList.cast<Map<String, dynamic>>()) {
+      final name = m['name'] as String? ?? '';
+      if (name == modelName || name.toLowerCase() == modelName.toLowerCase()) {
+        return _extractCapsFromModelData(m);
+      }
+    }
+
+    // Model not found in API response, fall back to heuristics
+    return _heuristicCaps(modelName);
+  }
+
+  @override
   Stream<ModelInfo> listModels() async* {
     final url = Uri.parse('https://docs.cohere.com/docs/models');
     _logger.info('Fetching models from Cohere docs: $url');
