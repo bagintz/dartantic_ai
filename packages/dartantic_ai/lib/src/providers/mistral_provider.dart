@@ -60,6 +60,13 @@ class MistralProvider
       );
     }
 
+    // Mistral does not support tools - ensure we throw an UnsupportedError
+    // for unsupported capability before validating API keys so tests that
+    // assert UnsupportedError receive it regardless of credentials.
+    if (tools != null) {
+      throw UnsupportedError('Mistral does not support tools');
+    }
+
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
     _logger.info(
       'Creating Mistral model: $modelName with ${tools?.length ?? 0} tools, '

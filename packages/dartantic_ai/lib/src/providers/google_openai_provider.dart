@@ -13,7 +13,7 @@ import 'openai_provider_base.dart';
 /// `https://generativelanguage.googleapis.com/v1beta/openai` but serves
 /// Gemini models. Since the OpenAI heuristics don't work for Gemini model
 /// names, we use Gemini-specific heuristics for capability detection.
-class GoogleOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
+class GoogleOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions, MediaGenerationModelOptions> {
   /// Creates a new Google OpenAI-compatible provider instance.
   GoogleOpenAIProvider({
     String? apiKey,
@@ -22,13 +22,6 @@ class GoogleOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     super.defaultModelNames = const {
       ModelKind.chat: 'gemini-2.5-flash',
       ModelKind.embeddings: 'text-embedding-004',
-    },
-    super.caps = const {
-      ProviderCaps.chat,
-      ProviderCaps.embeddings,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.chatVision,
     },
     super.aliases,
   }) : super(
@@ -53,6 +46,7 @@ class GoogleOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
     validateApiKeyPresence();

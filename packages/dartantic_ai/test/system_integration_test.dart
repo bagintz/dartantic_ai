@@ -65,7 +65,7 @@ void main() {
 
         // Complete conversation should have appropriate message count
         expect(history.length, greaterThan(4));
-      });
+      }, tags: ['needs-key']);
 
       test('multi-tool workflow with dependencies', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool, intTool]);
@@ -82,7 +82,7 @@ void main() {
             .expand((m) => m.toolResults)
             .toList();
         expect(toolResults.length, greaterThanOrEqualTo(1));
-      });
+      }, tags: ['needs-key']);
 
       test('complex conversation with system prompt', () async {
         final agent = Agent('openai:gpt-4o-mini');
@@ -101,7 +101,7 @@ void main() {
         expect(result.output, contains('23'));
 
         // Validate message history with system prompt
-      });
+      }, tags: ['needs-key']);
 
       test('streaming workflow with tool execution', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
@@ -125,7 +125,7 @@ void main() {
 
         final fullText = chunks.join();
         expect(fullText, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       runProviderTest(
         'handle end-to-end workflows correctly (basic conversation)',
@@ -279,7 +279,7 @@ void main() {
 
         // At least one provider should work
         expect(successfulProvider, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       test('provider-specific feature usage', () async {
         final testCases = [
@@ -302,7 +302,7 @@ void main() {
           expect(result.output, isNotEmpty);
           // Feature-specific validation could be added here
         }
-      });
+      }, tags: ['needs-key']);
 
       test('model comparison workflow', () async {
         final models = ['openai:gpt-4o-mini', 'google:gemini-2.5-flash'];
@@ -323,7 +323,7 @@ void main() {
         for (final output in results.values) {
           expect(output.toLowerCase(), contains('paris'));
         }
-      });
+      }, tags: ['needs-key']);
     });
 
     group('complex message handling', () {
@@ -348,7 +348,7 @@ void main() {
         expect(result.output, isNotEmpty);
         expect(result.output.toLowerCase(), contains('test'));
         history.addAll(result.messages);
-      });
+      }, tags: ['needs-key']);
     });
 
     group('error recovery and resilience', () {
@@ -368,7 +368,7 @@ void main() {
         // Should have attempted both tools
         final allMessages = result.messages;
         expect(allMessages.length, greaterThan(1));
-      });
+      }, tags: ['needs-key']);
 
       test('recovery from network interruptions', () async {
         final agent = Agent('openai:gpt-4o-mini');
@@ -403,7 +403,7 @@ void main() {
             .length;
 
         expect(successCount + errorCount, equals(3));
-      });
+      }, tags: ['needs-key']);
 
       test('conversation continuation after errors', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [errorTool]);
@@ -426,7 +426,7 @@ void main() {
         expect(result2.output, isNotEmpty);
         expect(result2.output, contains('4'));
         history.addAll(result2.messages);
-      });
+      }, tags: ['needs-key']);
     });
 
     group('performance and scaling', () {
@@ -452,7 +452,7 @@ void main() {
         }
 
         expect(history.length, greaterThanOrEqualTo(0));
-      });
+      }, tags: ['needs-key']);
 
       test('concurrent complex workflows', () async {
         final workflows = [
@@ -476,7 +476,7 @@ void main() {
         // Count successful workflows
         final successCount = results.whereType<ChatResult<String>>().length;
         expect(successCount, greaterThanOrEqualTo(0));
-      });
+      }, tags: ['needs-key']);
 
       test('memory efficiency with streaming', () async {
         final agent = Agent('openai:gpt-4o-mini');
@@ -501,7 +501,7 @@ void main() {
 
         expect(totalChunks, greaterThan(0));
         expect(maxChunkSize, greaterThanOrEqualTo(0));
-      });
+      }, tags: ['needs-key']);
     });
 
     group('real-world usage patterns', () {
@@ -526,7 +526,7 @@ function fibonacci(n) {
         // Should have used the string tool for formatting
         final hasToolResults = result.messages.any((m) => m.hasToolResults);
         expect(hasToolResults, isTrue);
-      });
+      }, tags: ['needs-key']);
 
       test('interactive problem solving', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [intTool]);
@@ -552,7 +552,7 @@ function fibonacci(n) {
         final hasToolResults = result.messages.any((m) => m.hasToolResults);
         expect(hasToolResults, isTrue);
         history.addAll(result.messages);
-      });
+      }, tags: ['needs-key']);
 
       test('creative writing with constraints', () async {
         final agent = Agent('openai:gpt-4o-mini');
@@ -570,7 +570,7 @@ function fibonacci(n) {
             .where((line) => line.trim().isNotEmpty)
             .toList();
         expect(lines.length, greaterThanOrEqualTo(3));
-      });
+      }, tags: ['needs-key']);
     });
 
     group('edge cases (limited providers)', () {
@@ -631,7 +631,7 @@ function fibonacci(n) {
 
         // Cleanup
         Agent.providerFactories.remove('echo-test');
-      });
+      }, tags: ['needs-key']);
 
       test('OpenAI-compatible custom provider pattern', () async {
         // Register OpenAI-compatible provider with custom baseUrl
@@ -651,7 +651,7 @@ function fibonacci(n) {
 
         // Cleanup
         Agent.providerFactories.remove('custom-openai-test');
-      });
+      }, tags: ['needs-key']);
     });
   });
 }

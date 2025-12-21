@@ -16,7 +16,7 @@ import 'openai_provider_base.dart';
 /// - `architecture.input_modalities`: ["text", "image", "audio", "file"]
 /// - `architecture.output_modalities`: ["text", "image"]
 /// - `supported_parameters`: ["tools", "reasoning", "structured_outputs", etc.]
-class OpenRouterProvider extends OpenAIProviderBase<OpenAIChatOptions> {
+class OpenRouterProvider extends OpenAIProviderBase<OpenAIChatOptions, MediaGenerationModelOptions> {
   /// Creates a new OpenRouter provider instance.
   OpenRouterProvider({
     String? apiKey,
@@ -24,12 +24,6 @@ class OpenRouterProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     super.displayName = 'OpenRouter',
     super.defaultModelNames = const {
       ModelKind.chat: 'google/gemini-2.5-flash',
-    },
-    super.caps = const {
-      ProviderCaps.chat,
-      ProviderCaps.multiToolCalls,
-      ProviderCaps.typedOutput,
-      ProviderCaps.chatVision,
     },
     super.aliases,
   }) : super(
@@ -54,8 +48,12 @@ class OpenRouterProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError('Extended thinking is not supported by the $displayName provider.');
+    }
     validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 

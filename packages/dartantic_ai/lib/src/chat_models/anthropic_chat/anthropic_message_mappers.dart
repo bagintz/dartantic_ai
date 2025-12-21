@@ -285,32 +285,14 @@ extension MessageListMapper on List<ChatMessage> {
   }
 
   a.Block _mapDataPartToBlock(DataPart dataPart) {
-    if (dataPart.mimeType.startsWith('image/')) {
-      // Images: Use native image blocks for better quality
-      return a.Block.image(
-        source: a.ImageBlockSource(
-          type: a.ImageBlockSourceType.base64,
-          mediaType: switch (dataPart.mimeType) {
-            'image/jpeg' => a.ImageBlockSourceMediaType.imageJpeg,
-            'image/png' => a.ImageBlockSourceMediaType.imagePng,
-            'image/gif' => a.ImageBlockSourceMediaType.imageGif,
-            'image/webp' => a.ImageBlockSourceMediaType.imageWebp,
-            _ => throw AssertionError(
-              'Unsupported image MIME type: ${dataPart.mimeType}',
-            ),
-          },
-          data: base64Encode(dataPart.bytes),
-        ),
-      );
-    } else {
-      // Non-images: Use dartantic_ai format as text
-      final base64Data = base64Encode(dataPart.bytes);
-      return a.Block.text(
-        text:
-            '[media: ${dataPart.mimeType}] '
-            'data:${dataPart.mimeType};base64,$base64Data',
-      );
-    }
+    // Use a simple text-based data URL for all media parts to avoid
+    // relying on generated SDK enum types which may change across versions.
+    final base64Data = base64Encode(dataPart.bytes);
+    return a.Block.text(
+      text:
+          '[media: ${dataPart.mimeType}] '
+          'data:${dataPart.mimeType};base64,$base64Data',
+    );
   }
 
   a.Message _mapModelMessage(ChatMessage message) {
@@ -1000,13 +982,6 @@ class MessageStreamEventTransformer
   }
 }
 
-String _imageMediaTypeToString(a.ImageBlockSourceMediaType mediaType) =>
-    switch (mediaType) {
-      a.ImageBlockSourceMediaType.imageJpeg => 'image/jpeg',
-      a.ImageBlockSourceMediaType.imagePng => 'image/png',
-      a.ImageBlockSourceMediaType.imageGif => 'image/gif',
-      a.ImageBlockSourceMediaType.imageWebp => 'image/webp',
-    };
 
 /// Maps an Anthropic [a.MessageContent] to message parts.
 List<Part> _mapMessageContent(a.MessageContent content) => switch (content) {
@@ -1022,9 +997,11 @@ List<Part> _mapMessageContent(a.MessageContent content) => switch (content) {
 List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   final a.TextBlock t => [TextPart(t.text)],
   final a.ImageBlock i => [
+    // Convert to a generic data part; generated SDK types may change across
+    // versions so keep this mapping robust by using dynamic access.
     DataPart(
-      base64Decode(i.source.data),
-      mimeType: _imageMediaTypeToString(i.source.mediaType),
+      base64Decode((i.source as dynamic).data as String),
+      mimeType: 'image/*',
     ),
   ],
   // Do not emit tool use blocks at start; emit at stop with full args.
@@ -1036,6 +1013,7 @@ List<Part> _mapContentBlock(a.Block contentBlock) => switch (contentBlock) {
   ),
   // Thinking blocks are filtered from message parts (metadata only).
   a.ThinkingBlock() => const [],
+  _ => const [],
 };
 
 /// Maps an Anthropic [a.BlockDelta] to message parts.
@@ -1045,6 +1023,7 @@ List<Part> _mapContentBlockDelta(String? lastToolId, a.BlockDelta blockDelta) =>
       final a.InputJsonBlockDelta _ => const [],
       // Thinking deltas handled in _mapContentBlockDeltaEvent (metadata only).
       a.ThinkingBlockDelta() => const [],
+      _ => const [],
     };
 
 /// Extension on [List<Tool>] to convert tool specs to Anthropic SDK tools.
@@ -1068,7 +1047,9 @@ FinishReason _mapFinishReason(a.StopReason? reason) => switch (reason) {
   a.StopReason.maxTokens => FinishReason.length,
   a.StopReason.stopSequence => FinishReason.stop,
   a.StopReason.toolUse => FinishReason.toolCalls,
+  a.StopReason.pauseTurn => FinishReason.unspecified,
   null => FinishReason.unspecified,
+  _ => FinishReason.unspecified,
 };
 
 /// Maps Anthropic [a.Usage] to [LanguageModelUsage].

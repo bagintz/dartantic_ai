@@ -151,6 +151,13 @@ void runProviderTest(
       },
       timeout: timeout,
       skip: isSkipped,
+      tags: ['needs-key'],
     );
   }
 }
+
+// When `dart test` loads this helper file directly it expects a top-level
+// `main()` to be present. Provide a no-op `main` so the file can be imported
+// by other tests without causing a loader error when it's scanned by the
+// test harness.
+void main() {}

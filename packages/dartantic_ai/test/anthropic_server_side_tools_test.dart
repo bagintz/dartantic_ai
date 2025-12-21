@@ -152,6 +152,7 @@ void main() {
         );
         expect(chunks.any((chunk) => chunk.assets.isNotEmpty), isTrue);
       },
+      tags: ['needs-key'],
       timeout: const Timeout(Duration(minutes: 2)),
     );
 

@@ -150,15 +150,14 @@ class WrapperProvider
   Stream<ModelInfo> listModels() async* {}
 
   @override
-<<<<<<< HEAD
   Future<List<ModelCaps>?> fetchModelCaps(String modelName, [Map<String, dynamic>? modelData]) => Future.value(null);
-=======
+
+  @override
   MediaGenerationModel<MediaGenerationModelOptions> createMediaModel({
     String? name,
     List<Tool>? tools,
     MediaGenerationModelOptions? options,
   }) => throw UnsupportedError('Media not supported in WrapperProvider');
->>>>>>> upstream/main
 }
 
 class DummyModel extends ChatModel<ChatModelOptions> {

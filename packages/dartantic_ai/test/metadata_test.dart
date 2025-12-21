@@ -161,5 +161,5 @@ void main() {
       expect(merged.metadata['key1'], equals('value1'));
       expect(merged.metadata['key2'], equals('value2'));
     });
-  });
+  }, tags: ['needs-key']);
 }

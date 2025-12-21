@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:google_cloud_ai_generativelanguage_v1beta/generativelanguage.dart'
     as gl;

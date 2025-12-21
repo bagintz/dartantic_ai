@@ -13,13 +13,12 @@ import 'openai_provider_base.dart';
 /// This provider uses Ollama's OpenAI-compatible endpoint at `/v1` but
 /// delegates capability detection to Ollama's native `/api/show` endpoint
 /// which provides model metadata including capabilities.
-class OllamaOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
+class OllamaOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions, MediaGenerationModelOptions> {
   /// Creates a new Ollama OpenAI-compatible provider instance.
   OllamaOpenAIProvider({
     super.name = 'ollama-openai',
     super.displayName = 'Ollama (OpenAI-compatible)',
     super.defaultModelNames = const {ModelKind.chat: 'llama3.2'},
-    super.caps = const {ProviderCaps.chat},
     super.aliases,
     Uri? baseUrl,
   }) : super(
@@ -46,8 +45,13 @@ class OllamaOpenAIProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError('Extended thinking is not supported by the $displayName provider.');
+    }
+
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
     _logger.info(

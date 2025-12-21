@@ -49,6 +49,7 @@ void main() {
               'response_id metadata should appear exactly once, not 4 times',
         );
       },
+      tags: ['needs-key'],
     );
 
     test('Tool event metadata is not duplicated', () async {
@@ -66,7 +67,7 @@ void main() {
 
       // Verify no metadata duplication
       validateNoMetadataDuplicates(results);
-    });
+    }, tags: ['needs-key']);
 
     test('Multiple metadata keys are not duplicated', () async {
       final agent = Agent(
@@ -86,6 +87,6 @@ void main() {
 
       // Verify no metadata duplication across all keys
       validateNoMetadataDuplicates(results);
-    });
+    }, tags: ['needs-key']);
   });
 }

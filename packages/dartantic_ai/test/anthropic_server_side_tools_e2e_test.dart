@@ -73,5 +73,5 @@ void main() {
       },
       timeout: const Timeout(Duration(minutes: 2)),
     );
-  });
+  }, tags: ['needs-key','e2e']);
 }

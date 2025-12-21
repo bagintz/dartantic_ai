@@ -660,5 +660,5 @@ void main() {
         },
       );
     });
-  });
+  }, tags: ['needs-key']);
 }

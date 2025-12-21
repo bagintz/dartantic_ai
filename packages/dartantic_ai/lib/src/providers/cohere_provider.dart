@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -136,6 +137,66 @@ class CohereProvider extends OpenAIProvider {
     return _heuristicCaps(modelName);
   }
 
+  /// Extract capability hints from Cohere's model metadata (when available).
+  List<ModelCaps> _extractCapsFromModelData(Map<String, dynamic> data) {
+    final caps = <ModelCaps>{};
+
+    // Some Cohere model metadata exposes `capabilities` or `type` fields.
+    final capsField = data['capabilities'] ?? data['capability'];
+    if (capsField is List) {
+      final strCaps = capsField.cast<String>();
+      for (final c in strCaps) {
+        final lc = c.toLowerCase();
+        if (lc.contains('embed')) caps.add(ModelCaps.embeddings);
+        if (lc.contains('chat') || lc.contains('generate')) caps.add(ModelCaps.chat);
+        if (lc.contains('image') || lc.contains('vision')) caps.add(ModelCaps.image);
+        if (lc.contains('audio') || lc.contains('tts')) caps.add(ModelCaps.audio);
+        if (lc.contains('tools') || lc.contains('function')) caps.add(ModelCaps.multiToolCalls);
+        if (lc.contains('structured') || lc.contains('json')) {
+          caps.add(ModelCaps.typedOutput);
+          if (caps.contains(ModelCaps.multiToolCalls)) caps.add(ModelCaps.typedOutputWithTools);
+        }
+      }
+    }
+
+    // Try `type` field or `model` name hints
+    final type = (data['type'] as String?)?.toLowerCase();
+    if (type != null) {
+      if (type == 'embedding') caps.add(ModelCaps.embeddings);
+      if (type == 'image' || type == 'vision') caps.add(ModelCaps.image);
+      if (type == 'audio' || type == 'tts') caps.add(ModelCaps.audio);
+      if (type == 'chat' || type == 'generate') caps.add(ModelCaps.chat);
+    }
+
+    // Fallback to name-based heuristics
+    final name = (data['name'] as String?) ?? '';
+    if (name.isNotEmpty) {
+      caps.addAll(_heuristicCaps(name));
+    }
+
+    return caps.toList();
+  }
+
+  /// Simple heuristics for Cohere model names.
+  List<ModelCaps> _heuristicCaps(String modelName) {
+    final id = modelName.toLowerCase();
+    final caps = <ModelCaps>{};
+    if (id.contains('embed')) {
+      caps.add(ModelCaps.embeddings);
+      return caps.toList();
+    }
+
+    if (id.contains('command') || id.contains('generate') || id.contains('chat')) {
+      caps.add(ModelCaps.chat);
+      caps.add(ModelCaps.typedOutput);
+      caps.add(ModelCaps.multiToolCalls);
+    }
+
+    if (id.contains('vision') || id.contains('image')) caps.add(ModelCaps.image);
+    if (id.contains('audio') || id.contains('tts')) caps.add(ModelCaps.audio);
+
+    return caps.toList();
+  }
   @override
   Stream<ModelInfo> listModels() async* {
     final url = Uri.parse('https://docs.cohere.com/docs/models');

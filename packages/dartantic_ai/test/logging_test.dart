@@ -94,7 +94,7 @@ void main() {
         // Should have produced some logs
         expect(logs, isNotEmpty);
         expect(logs.any((log) => log.loggerName.contains('dartantic')), isTrue);
-      });
+      }, tags: ['needs-key']);
 
       test('streaming operations produce logs when enabled', () async {
         final logs = <LogRecord>[];
@@ -114,7 +114,7 @@ void main() {
         // Should have produced logs
         expect(logs, isNotEmpty);
         expect(logs.any((log) => log.level == Level.FINE), isTrue);
-      });
+      }, tags: ['needs-key']);
 
       test('no logs produced when logging disabled', () async {
         final logs = <LogRecord>[];
@@ -129,7 +129,7 @@ void main() {
 
         // Should NOT have produced any logs
         expect(logs, isEmpty);
-      });
+      }, tags: ['needs-key']);
     });
 
     group('log filtering combinations', () {

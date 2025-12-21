@@ -348,11 +348,13 @@ void main() {
       );
     },
     timeout: const Timeout(Duration(minutes: 2)),
+    tags: ['needs-key'],
   );
 
   group(
     'OpenAI Responses Server-Side Tools Execution',
     timeout: const Timeout(Duration(minutes: 2)),
+    tags: ['needs-key'],
     () {
       test('code interpreter executes Python code', () async {
         final agent = Agent(

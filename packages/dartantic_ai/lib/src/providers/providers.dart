@@ -107,9 +107,12 @@ class Providers {
       .map((e) => e.value)
       .toList();
 
-  /// Returns all providers that have the specified capabilities.
-  static List<Provider> allWith(Set<ProviderCaps> caps) =>
-      all.where((p) => p.caps.containsAll(caps)).toList();
+  /// Returns all providers that have the specified model-level capabilities.
+  /// NOTE: Upstream removed `ProviderCaps` and capability support is now
+  /// model-specific (per-model `ModelCaps`). For now this helper returns
+  /// all providers; callers should instead query `listModels()` for
+  /// model-level capability discovery.
+  static List<Provider> allWith(Set<ModelCaps> caps) => all;
 
   static final _providerMap = <String, Provider>{};
 

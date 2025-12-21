@@ -123,6 +123,7 @@ void main() {
             );
           }
         },
+        tags: ['needs-key'],
       );
 
       test('capability checks are accurate', () async {
@@ -143,7 +144,7 @@ void main() {
         // Should work without throwing
         final result = await agent.send('Use echo to say "test"');
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
     });
 
     group('capability coverage (80% cases)', () {

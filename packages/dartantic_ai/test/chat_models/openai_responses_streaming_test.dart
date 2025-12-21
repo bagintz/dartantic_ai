@@ -61,7 +61,7 @@ void main() {
         contains('quicksort'),
         reason: 'Response should address the question',
       );
-    });
+    }, tags: ['needs-key']);
 
     test('should not duplicate text in streaming responses', () async {
       final agent = Agent('openai-responses');
@@ -300,7 +300,7 @@ void main() {
         );
       },
     );
-  });
+  }, tags: ['needs-key']);
 }
 
 /// Detects if text contains duplication where the first half equals the

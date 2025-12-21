@@ -239,5 +239,5 @@ void main() {
         expect(result.output, isNotEmpty);
       });
     });
-  });
+  }, tags: ['needs-key']);
 }

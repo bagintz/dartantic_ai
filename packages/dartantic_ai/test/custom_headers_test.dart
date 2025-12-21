@@ -104,6 +104,7 @@ Future<void> _testProviderHeaders(String providerName) async {
 
   // Create provider with custom headers
   final customHeaders = {customHeader: customValue};
+  final apiKey = baseProvider.apiKey ?? 'test-key';
 
   Provider provider;
   ChatModel model;
@@ -111,24 +112,24 @@ Future<void> _testProviderHeaders(String providerName) async {
   switch (providerName) {
     case 'openai':
       provider = OpenAIProvider(
-        apiKey: baseProvider.apiKey,
+        apiKey: apiKey,
         headers: customHeaders,
       );
       model = OpenAIChatModel(
         name: 'gpt-4o-mini',
-        apiKey: baseProvider.apiKey,
+        apiKey: apiKey,
         client: captureClient,
         headers: customHeaders,
         defaultOptions: const OpenAIChatOptions(),
       );
     case 'google':
       provider = GoogleProvider(
-        apiKey: baseProvider.apiKey,
+        apiKey: apiKey,
         headers: customHeaders,
       );
       model = GoogleChatModel(
         name: 'gemini-2.0-flash',
-        apiKey: baseProvider.apiKey!,
+        apiKey: apiKey,
         baseUrl: GoogleProvider.defaultBaseUrl,
         client: captureClient,
         headers: customHeaders,
@@ -136,24 +137,24 @@ Future<void> _testProviderHeaders(String providerName) async {
       );
     case 'anthropic':
       provider = AnthropicProvider(
-        apiKey: baseProvider.apiKey,
+        apiKey: apiKey,
         headers: customHeaders,
       );
       model = AnthropicChatModel(
         name: 'claude-sonnet-4-20250514',
-        apiKey: baseProvider.apiKey!,
+        apiKey: apiKey,
         client: captureClient,
         headers: customHeaders,
         defaultOptions: const AnthropicChatOptions(),
       );
     case 'mistral':
       provider = MistralProvider(
-        apiKey: baseProvider.apiKey,
+        apiKey: apiKey,
         headers: customHeaders,
       );
       model = MistralChatModel(
         name: 'open-mistral-7b',
-        apiKey: baseProvider.apiKey!,
+        apiKey: apiKey,
         client: captureClient,
         headers: customHeaders,
         defaultOptions: const MistralChatModelOptions(),

@@ -170,7 +170,7 @@ void main() {
         }
       }
     });
-  });
+  }, tags: ['needs-key']);
 
   group('OpenAI Provider ModelCaps', () {
     test(
@@ -403,5 +403,5 @@ void main() {
       print('\nTotal models with caps: $count');
       expect(count, greaterThan(0));
     });
-  });
+  }, tags: ['needs-key']);
 }

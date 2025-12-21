@@ -2,7 +2,7 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_schema/json_schema.dart';
 import 'package:logging/logging.dart';
-import 'package:mistralai_dart/mistralai_dart.dart';
+import 'package:mistralai_dart/mistralai_dart.dart' as a;
 
 import 'mistral_chat_options.dart';
 import 'mistral_message_mappers.dart';
@@ -19,7 +19,7 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
     Uri? baseUrl,
     http.Client? client,
     Map<String, String>? headers,
-  }) : _client = MistralAIClient(
+  }) : _client = a.MistralAIClient(
          apiKey: apiKey,
          baseUrl: baseUrl?.toString(),
          client: client,
@@ -43,7 +43,7 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
 
   static final Logger _logger = Logger('dartantic.chat.models.mistral');
 
-  final MistralAIClient _client;
+  final a.MistralAIClient _client;
 
   @override
   Stream<ChatResult<ChatMessage>> sendStream(
@@ -90,15 +90,15 @@ class MistralChatModel extends ChatModel<MistralChatModelOptions> {
   }
 
   /// Creates a GenerateCompletionRequest from the given input.
-  ChatCompletionRequest createChatCompletionRequest(
+  a.ChatCompletionRequest createChatCompletionRequest(
     List<ChatMessage> messages, {
     required String modelName,
     required MistralChatModelOptions defaultOptions,
     List<Tool>? tools,
     double? temperature,
     MistralChatModelOptions? options,
-  }) => ChatCompletionRequest(
-    model: ChatCompletionModel.modelId(modelName),
+  }) => a.ChatCompletionRequest(
+    model: a.ChatCompletionModel.modelId(modelName),
     messages: messages.toChatCompletionMessages(),
     temperature: temperature,
     topP: options?.topP ?? defaultOptions.topP,

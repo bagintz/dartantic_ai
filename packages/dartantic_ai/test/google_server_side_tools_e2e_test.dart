@@ -27,6 +27,7 @@ void main() {
         // but checking output is a good end-to-end verification.
       },
       timeout: const Timeout(Duration(minutes: 2)),
+      tags: ['e2e', 'needs-key'],
     );
 
     test(
@@ -48,6 +49,7 @@ void main() {
         expect(result.output, contains('Dart'));
       },
       timeout: const Timeout(Duration(minutes: 2)),
+      tags: ['e2e', 'needs-key'],
     );
   });
 }

@@ -422,7 +422,7 @@ void main() {
         requiredCaps: {ProviderTestCaps.embeddings},
       );
     });
-  });
+  }, tags: ['needs-key']);
 }
 
 /// Creates an embeddings model with custom dimensions for the given provider.

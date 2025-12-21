@@ -146,6 +146,7 @@ FinishReason _mapFinishReason(ChatCompletionFinishReason? reason) {
     ChatCompletionFinishReason.length => FinishReason.length,
     ChatCompletionFinishReason.modelLength => FinishReason.length,
     null => FinishReason.unspecified,
+    _ => FinishReason.unspecified,
   };
   _logger.fine('Mapped finish reason: $reason -> $mapped');
   return mapped;

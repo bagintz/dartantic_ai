@@ -33,7 +33,7 @@ void main() {
     test('Ollama provider uses custom HTTP client', () async {
       await _testProviderHttpClient('ollama');
     });
-  });
+  }, tags: ['needs-key']);
 }
 
 Future<void> _testProviderHttpClient(String providerName) async {

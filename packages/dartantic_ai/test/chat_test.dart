@@ -197,7 +197,7 @@ void main() {
       expect(result.output.temperature, equals(22.5));
       expect(chat.history.length, equals(2));
     });
-  });
+  }, tags: ['needs-key']);
 }
 
 // Test types for typed output tests

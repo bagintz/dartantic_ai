@@ -204,6 +204,8 @@ void main() {
     group('dynamic provider usage', () {
       test('can create models via discovered providers', () {
         final provider = Agent.getProvider('openai');
+        // Use a dummy key for testing model creation without network
+        provider.apiKey = 'test-key';
         final model = provider.createChatModel(name: 'gpt-4o-mini');
         expect(model, isNotNull);
       });

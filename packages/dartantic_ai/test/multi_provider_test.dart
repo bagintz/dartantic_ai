@@ -42,7 +42,7 @@ void main() {
         );
         history.addAll(result3.messages);
         expect(result3.output.toLowerCase(), contains('hiking'));
-      });
+      }, tags: ['needs-key']);
 
       test('system prompt preservation across providers', () async {
         final systemMessage = ChatMessage.system(
@@ -83,7 +83,7 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('fare'), contains('ahoy'), contains('sail')),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('round-robin conversation pattern', () async {
         final providers = ['anthropic', 'openai', 'google'];
@@ -105,7 +105,7 @@ void main() {
             expect(result.output.toLowerCase(), contains(i == 1 ? '5' : 'dog'));
           }
         }
-      });
+      }, tags: ['needs-key']);
     });
 
     group('Group 2: Tool Call Message Portability', () {
@@ -152,7 +152,7 @@ void main() {
         );
         history.addAll(result3.messages);
         expect(result3.output.toLowerCase(), contains('boston'));
-      });
+      }, tags: ['needs-key']);
 
       test('multiple tool calls in one turn', () async {
         final providers = ['openai', 'google', 'anthropic'];
@@ -198,7 +198,7 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('seattle'), contains('chicago')),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('sequential tool dependencies', () async {
         final providers = ['anthropic', 'openai', 'google'];
@@ -231,7 +231,7 @@ void main() {
           result3.output.toLowerCase(),
           allOf(contains('step'), anyOf(contains('1'), contains('2'))),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('tool error handling across providers', () async {
         final providers = ['google', 'openai', 'anthropic'];
@@ -260,7 +260,7 @@ void main() {
           history: history,
         );
         history.addAll(result3.messages);
-      });
+      }, tags: ['needs-key']);
     });
 
     group('Group 3: Complex Conversations', () {
@@ -329,7 +329,7 @@ void main() {
             anyOf(contains('weather'), contains('temperature')),
           ),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('tool result references across providers', () async {
         final providers = ['google', 'openai', 'anthropic'];
@@ -374,7 +374,7 @@ void main() {
           result3.output.toLowerCase(),
           anyOf(contains('share'), contains('stock'), contains('buy')),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('streaming conversation across providers', () async {
         final providers = ['anthropic', 'google', 'openai'];
@@ -416,7 +416,7 @@ void main() {
         }
         final response3 = chunks3.join().toLowerCase();
         expect(response3, contains('flutter'));
-      });
+      }, tags: ['needs-key']);
     });
 
     group('Group 4: Typed Output Portability', () {
@@ -459,7 +459,7 @@ void main() {
           history: history,
         );
         history.addAll(result3.messages);
-      });
+      }, tags: ['needs-key']);
 
       test(
         'recipe scenario with typed output - anthropic and openai',
@@ -525,8 +525,7 @@ void main() {
             ),
             isFalse,
           );
-        },
-      );
+        }, tags: ['needs-key']);
 
       test('typed output with tools streaming - openai and google', () async {
         final providers = ['openai', 'google'];
@@ -566,7 +565,7 @@ void main() {
         );
         history.addAll(result2.messages);
         expect(result2.output.toLowerCase(), contains('paris'));
-      });
+      }, tags: ['needs-key']);
 
       test('complex nested schema portability', () async {
         final providers = ['google', 'anthropic', 'openai'];
@@ -640,7 +639,7 @@ void main() {
             contains('apple'),
           ),
         );
-      });
+      }, tags: ['needs-key']);
     });
   });
 }

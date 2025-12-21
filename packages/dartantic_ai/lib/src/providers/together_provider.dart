@@ -19,7 +19,7 @@ import 'openai_provider_base.dart';
 /// - Documented function-calling support for specific models
 ///
 /// See https://docs.together.ai/docs/function-calling for supported models.
-class TogetherProvider extends OpenAIProviderBase<OpenAIChatOptions> {
+class TogetherProvider extends OpenAIProviderBase<OpenAIChatOptions, MediaGenerationModelOptions> {
   /// Creates a new Together AI provider instance.
   TogetherProvider({
     String? apiKey,
@@ -27,10 +27,6 @@ class TogetherProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     super.displayName = 'Together AI',
     super.defaultModelNames = const {
       ModelKind.chat: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
-    },
-    super.caps = const {
-      ProviderCaps.chat,
-      ProviderCaps.typedOutput,
     },
     super.aliases,
   }) : super(
@@ -110,8 +106,12 @@ class TogetherProvider extends OpenAIProviderBase<OpenAIChatOptions> {
     String? name,
     List<Tool>? tools,
     double? temperature,
+    bool enableThinking = false,
     OpenAIChatOptions? options,
   }) {
+    if (enableThinking) {
+      throw UnsupportedError('Extended thinking is not supported by the $displayName provider.');
+    }
     validateApiKeyPresence();
     final modelName = name ?? defaultModelNames[ModelKind.chat]!;
 
@@ -163,15 +163,21 @@ class TogetherProvider extends OpenAIProviderBase<OpenAIChatOptions> {
       switch (type) {
         case 'chat':
           caps.add(ModelCaps.chat);
+          break;
         case 'embedding':
           caps.add(ModelCaps.embeddings);
+          break;
         case 'image':
           caps.add(ModelCaps.image);
+          break;
         case 'audio':
         case 'transcribe':
           caps.add(ModelCaps.audio);
+          break;
         // 'code', 'language', 'moderation', 'video', 'rerank'
         // don't map to our caps
+        default:
+          break;
       }
     } else {
       // Default to chat if we don't have type info
@@ -249,8 +255,10 @@ class TogetherProvider extends OpenAIProviderBase<OpenAIChatOptions> {
         case 'code':
         case 'language':
           kinds.add(ModelKind.chat);
+          break;
         case 'embedding':
           kinds.add(ModelKind.embeddings);
+          break;
         // 'image', 'audio', 'video', 'moderation', 'transcribe', 'rerank'
         // don't map to model kinds we track
         default:

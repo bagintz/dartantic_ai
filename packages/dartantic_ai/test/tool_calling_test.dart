@@ -38,7 +38,7 @@ void main() {
             .toList();
         expect(toolResults, hasLength(1));
         expect(toolResults.first.result, equals('String result: hello'));
-      });
+      }, tags: ['needs-key']);
 
       test('calls a tool with numeric return', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [intTool]);
@@ -57,7 +57,7 @@ void main() {
           isTrue,
           reason: 'Expected 42 or "42", got $result (${result.runtimeType})',
         );
-      });
+      }, tags: ['needs-key']);
 
       test('calls a tool returning a map', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [mapTool]);
@@ -81,7 +81,7 @@ void main() {
           expect(resultMap['name'], equals('test'));
           expect(resultMap['type'], equals('map_result'));
         }
-      });
+      }, tags: ['needs-key']);
 
       // Moved to edge cases section
 
@@ -147,7 +147,7 @@ void main() {
         expect(toolResults, hasLength(2));
         expect(toolResults[0].result, equals('Step 1 processed: hello'));
         expect(toolResults[1].result, contains('Step 2 processed:'));
-      });
+      }, tags: ['needs-key']);
 
       test('calls multiple independent tools', () async {
         final agent = Agent(
@@ -172,7 +172,7 @@ void main() {
         // Tool results may be serialized as strings
         expect(results.any((r) => r == 100 || r == '100'), isTrue);
         expect(results.any((r) => r == true || r == 'true'), isTrue);
-      });
+      }, tags: ['needs-key']);
 
       test('calls same tool multiple times with different arguments', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [weatherTool]);
@@ -193,7 +193,7 @@ void main() {
         expect(results.any((r) => r.contains('New York')), isTrue);
         expect(results.any((r) => r.contains('45°F')), isTrue); // Boston temp
         expect(results.any((r) => r.contains('52°F')), isTrue); // New York temp
-      });
+      }, tags: ['needs-key']);
 
       test('calls same tool multiple times with same arguments', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [stringTool]);
@@ -216,7 +216,7 @@ void main() {
             expect(tr.result, equals('String result: repeat test'));
           }
         }
-      });
+      }, tags: ['needs-key']);
 
       runProviderTest(
         'handles multiple different tools',
@@ -484,7 +484,7 @@ void main() {
           response.output.toLowerCase(),
           anyOf(contains('error'), contains('failed'), contains('exception')),
         );
-      });
+      }, tags: ['needs-key']);
 
       // Moved to edge cases section
 
@@ -547,7 +547,7 @@ void main() {
           fullResponse.toLowerCase(),
           anyOf(contains('streaming test'), contains('string_tool')),
         );
-      });
+      }, tags: ['needs-key']);
 
       runProviderTest(
         'stream tool calls correctly',
@@ -598,7 +598,7 @@ void main() {
           fullResponse.toLowerCase(),
           anyOf(contains('99'), contains('int_tool')),
         );
-      });
+      }, tags: ['needs-key']);
     });
 
     group('tool result integration', () {
@@ -621,7 +621,7 @@ void main() {
           response.output.toLowerCase(),
           anyOf(contains('returned'), contains('result'), contains('output')),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('handles tool results in conversation context', () async {
         final agent = Agent('openai:gpt-4o-mini', tools: [mapTool]);
@@ -657,7 +657,7 @@ void main() {
           history: messages,
         );
         expect(response.output.toLowerCase(), contains('blue'));
-      });
+      }, tags: ['needs-key']);
 
       runProviderTest(
         'integrate tool results into messages correctly',

@@ -655,7 +655,7 @@ void main() {
         expect(result.output.temperature, equals(15));
         expect(result.output.conditions.toLowerCase(), equals('cloudy'));
         expect(result.output.humidity, equals(70));
-      });
+      }, tags: ['needs-key']);
 
       runProviderTest(
         'handles nested custom types',

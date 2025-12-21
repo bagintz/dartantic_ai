@@ -4,8 +4,10 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
+import '../chat_models/chat_utils.dart';
 import '../embeddings_models/openai_embeddings/openai_embeddings_model.dart';
 import '../embeddings_models/openai_embeddings/openai_embeddings_model_options.dart';
+import '../platform/platform.dart';
 import '../shared/openai_utils.dart';
 
 /// Shared OpenAI provider functionality for canonical and Responses variants.
@@ -125,6 +127,11 @@ abstract class OpenAIProviderBase<
       caps.add(ModelCaps.embeddings);
     }
     if (id.contains('vision') || id.contains('image') || description.contains('vision') || description.contains('image')) {
+      caps.add(ModelCaps.chatVision);
+    }
+    // Known GPT-4o / multimodal models are vision-capable even if the
+    // model description doesn't include explicit keywords.
+    if (id.contains('gpt-4o') || id.contains('gpt-4.1') || id.contains('gpt-4-turbo') || id.contains('gpt-5')) {
       caps.add(ModelCaps.chatVision);
     }
     if (id.contains('audio') || description.contains('audio') || id.contains('whisper')) {

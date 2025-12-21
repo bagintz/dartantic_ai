@@ -70,6 +70,7 @@ void main() {
         validateNoMetadataDuplicates(results);
       },
       timeout: const Timeout(Duration(minutes: 1)),
+      tags: ['needs-key'],
     );
 
     test('generates and downloads container files', () async {
@@ -91,7 +92,7 @@ void main() {
 
       // The bug would have crashed here if the workaround wasn't in place This
       // test proves the workaround works
-    });
+    }, tags: ['needs-key']);
 
     test(
       'generates plots/CSV and downloads both as DataPart',
@@ -159,6 +160,7 @@ void main() {
         );
       },
       timeout: const Timeout(Duration(minutes: 1)),
+      tags: ['needs-key'],
     );
 
     test(
@@ -249,6 +251,7 @@ void main() {
       },
       // Two code interpreter sessions need more than 30 seconds
       timeout: const Timeout(Duration(minutes: 2)),
+      tags: ['needs-key'],
     );
   });
 
@@ -295,6 +298,7 @@ void main() {
         expect(imagePart.bytes.lengthInBytes, greaterThan(0));
       },
       timeout: const Timeout(Duration(minutes: 2)),
+      tags: ['needs-key'],
     );
 
     test(
@@ -338,6 +342,7 @@ void main() {
         );
       },
       timeout: const Timeout(Duration(minutes: 2)),
+      tags: ['needs-key'],
     );
   });
 
@@ -384,6 +389,7 @@ void main() {
         );
       },
       timeout: const Timeout(Duration(seconds: 60)),
+      tags: ['needs-key'],
     );
 
     test('includes location hints in search', () async {
@@ -405,7 +411,7 @@ void main() {
 
       expect(fullOutput, isNotEmpty);
       // Should reference Tokyo/Japan time
-    });
+    }, tags: ['needs-key']);
   });
 
   group('File Search Integration', () {
@@ -502,7 +508,7 @@ of structured data alongside the main chat response.
       await client.deleteVectorStore(vectorStore.id);
       await client.deleteFile(uploadedFile.id);
       client.close();
-    });
+    }, tags: ['needs-key']);
   });
 
   group('Multiple Tools Integration', () {
@@ -544,6 +550,6 @@ of structured data alongside the main chat response.
         isTrue,
         reason: 'Should use at least one server-side tool',
       );
-    });
+    }, tags: ['needs-key']);
   });
 }

@@ -95,7 +95,7 @@ void main() {
               reason: '$provider: streamed text should match final message',
             );
           }
-        });
+        }, tags: ['needs-key']);
 
         test('should not duplicate text in non-streaming responses', () async {
           Agent agent;
@@ -197,7 +197,7 @@ void main() {
             }
           }
         });
-      });
+      }, tags: ['needs-key']);
     }
   });
 }

@@ -28,7 +28,7 @@ void main() {
         // Temperature 0 should produce very similar outputs
         expect(result1.output.trim(), isNotEmpty);
         expect(result2.output.trim(), isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       test('temperature 1 produces varied output', () async {
         final agent = Agent(
@@ -43,7 +43,7 @@ void main() {
         // Temperature 1 should produce different outputs
         expect(result1.output, isNotEmpty);
         expect(result2.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       runProviderTest(
         'temperature parameter is respected',
@@ -77,7 +77,7 @@ void main() {
         // Both should provide responses
         expect(openaiLength, greaterThan(0));
         expect(anthropicLength, greaterThan(0));
-      });
+      }, tags: ['needs-key']);
 
       test('system prompts affect behavior', () async {
         final agent = Agent('google:gemini-2.5-flash');
@@ -101,7 +101,7 @@ void main() {
             contains('ye'),
           ),
         );
-      });
+      }, tags: ['needs-key']);
     });
 
     group('model capabilities (80% cases)', () {
@@ -136,7 +136,7 @@ void main() {
           decoded.toString().toLowerCase(),
           allOf(contains('test'), contains('123')),
         );
-      });
+      }, tags: ['needs-key']);
 
       test('providers respect system prompts', () async {
         final agent = Agent('anthropic:claude-3-5-haiku-latest');
@@ -149,7 +149,7 @@ void main() {
         final wordCount = result.output.trim().split(' ').length;
         // Allow some flexibility as models aren't perfect
         expect(wordCount, lessThanOrEqualTo(10));
-      });
+      }, tags: ['needs-key']);
 
       test('temperature affects creativity', () async {
         // Low temperature = more focused
@@ -161,7 +161,7 @@ void main() {
         agent = Agent('google:gemini-2.5-flash', temperature: 0.9);
         result = await agent.send('Write a word that rhymes with cat');
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
     });
 
     group('configuration flexibility (80% cases)', () {
@@ -170,7 +170,7 @@ void main() {
 
         final result = await agent.send('Generate a random word');
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       test('agent respects system prompt', () async {
         final agent = Agent('anthropic:claude-3-5-haiku-latest');
@@ -190,7 +190,7 @@ void main() {
             contains('arithmetic'),
           ),
         );
-      });
+      }, tags: ['needs-key']);
     });
 
     group('edge cases', () {
@@ -204,14 +204,14 @@ void main() {
         agent = Agent('google:gemini-2.5-flash', temperature: 2);
         result = await agent.send('Say something creative');
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       test('default values work correctly', () async {
         // Agent with no options should work
         final agent = Agent('google:gemini-2.5-flash');
         final result = await agent.send('Test default settings');
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       test('edge case temperature values', () async {
         // Very low temperature
@@ -223,7 +223,7 @@ void main() {
         agent = Agent('google:gemini-2.5-flash', temperature: 1.5);
         result = await agent.send('Generate a creative word');
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
 
       test('long system prompts', () async {
         final longPrompt = 'You are an assistant. ' * 50;
@@ -234,7 +234,7 @@ void main() {
           history: [ChatMessage.system(longPrompt)],
         );
         expect(result.output, isNotEmpty);
-      });
+      }, tags: ['needs-key']);
     });
-  });
+  }, tags: ['needs-key']);
 }
